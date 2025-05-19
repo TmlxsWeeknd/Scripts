@@ -1,0 +1,172 @@
+-- Services
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+gui.Name = "AutoFarmUI"
+gui.ResetOnSpawn = false
+
+-- Toggles
+local autoBuyToggle = true
+local autoSeedBuyToggle = true
+local hopperRunning = true
+local foundBloodmoon = false
+
+-- Create Button Function
+local function createToggleButton(textOn, textOff, yPos, initial, onToggle)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 180, 0, 40)
+	btn.Position = UDim2.new(0, 10, 0, yPos)
+	btn.BackgroundTransparency = 0.5
+	btn.BackgroundColor3 = Color3.new(0, 0, 0)
+	btn.BorderColor3 = Color3.new(0, 0, 0)
+	btn.Text = initial and textOn or textOff
+	btn.Font = Enum.Font.SourceSansBold
+	btn.TextSize = 18
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.Parent = gui
+
+	local corner = Instance.new("UICorner", btn)
+	corner.CornerRadius = UDim.new(0, 8)
+
+	-- Rainbow text
+	spawn(function()
+		local hue = 0
+		while true do
+			btn.TextColor3 = Color3.fromHSV(hue, 1, 1)
+			hue = (hue + 0.01) % 1
+			wait(0.05)
+		end
+	end)
+
+	btn.MouseButton1Click:Connect(function()
+		initial = not initial
+		btn.Text = initial and textOn or textOff
+		onToggle(initial)
+	end)
+end
+
+-- Auto-buy logic
+spawn(function()
+	local items = {
+		"Chocolate Carrot", "Red Lollipop", "Candy Sunflower",
+		"Easter Egg", "Chocolate Sprinkler", "Candy Blossom"
+	}
+	while true do
+		if autoBuyToggle then
+			for _, item in ipairs(items) do
+				pcall(function()
+					ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("BuyEventShopStock"):FireServer(item)
+				end)
+				wait(0.1)
+			end
+		end
+		wait(1)
+	end
+end)
+
+-- Auto seed logic
+spawn(function()
+	local seeds = {"Beanstalk", "Grape", "Pepper", "Cacao"}
+	while true do
+		if autoSeedBuyToggle then
+			for _, seed in ipairs(seeds) do
+				pcall(function()
+					ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(seed)
+				end)
+				wait(0.1)
+			end
+		end
+		wait(1)
+	end
+end)
+
+-- Skybox matching
+local bloodmoonSky = {
+	SkyboxBk = "rbxassetid://111321078595932",
+	SkyboxFt = "rbxassetid://95129324535672",
+	SkyboxLf = "rbxassetid://111970040506702",
+	SkyboxDn = "rbxassetid://82118430379285",
+	SkyboxRt = "rbxassetid://79353534175259",
+	SkyboxUp = "rbxassetid://84457327390960"
+}
+
+local function isBloodmoon()
+	local sky = Lighting:FindFirstChildWhichIsA("Sky")
+	if not sky then return false end
+	for side, id in pairs(bloodmoonSky) do
+		if not sky[side] or tostring(sky[side]) ~= id then
+			return false
+		end
+	end
+	return true
+end
+
+-- Get servers
+local function getServers()
+	local success, result = pcall(function()
+		local url = string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100", game.PlaceId)
+		return HttpService:JSONDecode(game:HttpGet(url))
+	end)
+	return (success and result and result.data) or {}
+end
+
+-- Hopper logic
+spawn(function()
+	wait(15)
+	while true do
+		if hopperRunning and not foundBloodmoon then
+			print("🌍 Hopping servers...")
+			local servers = getServers()
+			for _, s in ipairs(servers) do
+				if s.id ~= game.JobId and not s.vipServerId and s.playing >= 2 and s.playing < s.maxPlayers then
+					local ok, err = pcall(function()
+						TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
+					end)
+					if ok then
+						print("🔁 Teleporting...")
+					else
+						warn("❌ Failed:", err)
+					end
+					break
+				end
+			end
+			wait(15)
+		elseif foundBloodmoon then
+			print("🌕 Bloodmoon found! Staying 17 minutes.")
+			wait(1020)
+			foundBloodmoon = false
+		end
+		if isBloodmoon() then
+			foundBloodmoon = true
+		end
+		wait(1)
+	end
+end)
+
+-- Anti-idle
+spawn(function()
+	local vu = game:GetService("VirtualUser")
+	Players.LocalPlayer.Idled:Connect(function()
+		vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+		wait(1)
+		vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+	end)
+end)
+
+-- Toggle Buttons
+createToggleButton("Hopper: ON", "Hopper: OFF", 10, true, function(state)
+	hopperRunning = state
+end)
+
+createToggleButton("Auto Buy: ON", "Auto Buy: OFF", 60, true, function(state)
+	autoBuyToggle = state
+end)
+
+createToggleButton("Seed Buy: ON", "Seed Buy: OFF", 110, true, function(state)
+	autoSeedBuyToggle = state
+end)
