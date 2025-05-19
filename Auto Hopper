@@ -132,7 +132,7 @@ local function runHopper()
                 print("❌ Not bloodlit. Searching for a new server...")
                 local servers = getServers()
                 for _, s in ipairs(servers) do
-                    if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                    if s.playing < s.maxPlayers and s.id ~= game.JobId and not s.private then
                         wait(15)  -- wait 15 seconds before teleport
                         if running then
                             TeleportService:TeleportToPlaceInstance(PlaceId, s.id, LocalPlayer)
