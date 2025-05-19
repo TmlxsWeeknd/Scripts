@@ -121,6 +121,19 @@ local function getServers()
     return {}
 end
 
+-- Safe teleport function for better executor support
+local function safeTeleport(placeId, serverId)
+    local success, err = pcall(function()
+        TeleportService:TeleportToPlaceInstance(placeId, serverId, LocalPlayer)
+    end)
+    if not success then
+        -- fallback to normal teleport to place (no specific server)
+        pcall(function()
+            TeleportService:Teleport(placeId, LocalPlayer)
+        end)
+    end
+end
+
 -- Main hopper logic
 local function runHopper()
     while true do
@@ -135,7 +148,7 @@ local function runHopper()
                     if s.playing < s.maxPlayers and s.id ~= game.JobId and not s.private then
                         wait(15)  -- wait 15 seconds before teleport
                         if running then
-                            TeleportService:TeleportToPlaceInstance(PlaceId, s.id, LocalPlayer)
+                            safeTeleport(PlaceId, s.id)
                             wait(5)
                         else
                             print("⏸️ Hopper was turned off before teleport.")
