@@ -133,7 +133,7 @@ local function runHopper()
                 local servers = getServers()
                 for _, s in ipairs(servers) do
                     if s.playing < s.maxPlayers and s.id ~= game.JobId then
-                        wait(5)  -- wait 5 seconds before teleport
+                        wait(15)  -- wait 15 seconds before teleport
                         if running then
                             TeleportService:TeleportToPlaceInstance(PlaceId, s.id, LocalPlayer)
                             wait(5)
