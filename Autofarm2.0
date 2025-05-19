@@ -1,0 +1,238 @@
+-- Services
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local PlaceId = game.PlaceId
+
+-- Flags
+local hopperRunning = true -- Auto hopper ON by default
+local autoBuyToggle = true -- Auto buy ON by default
+local autoSeedBuyToggle = true -- Auto seed buy ON by default
+
+-- Bloodlit skybox IDs
+local bloodlitSkyboxIds = {
+    SkyboxBk = "rbxassetid://111321078595932",
+    SkyboxFt = "rbxassetid://95129324535672",
+    SkyboxLf = "rbxassetid://111970040506702",
+    SkyboxDn = "rbxassetid://82118430379285",
+    SkyboxRt = "rbxassetid://79353534175259",
+    SkyboxUp = "rbxassetid://84457327390960"
+}
+
+-- Night skybox IDs
+local nightSkyboxIds = {
+    SkyboxBk = "rbxassetid://135897169947130",
+    SkyboxFt = "rbxassetid://107905878941696",
+    SkyboxLf = "rbxassetid://91354764228778",
+    SkyboxRt = "rbxassetid://101750516482570",
+    SkyboxUp = "rbxassetid://123019651557734",
+    SkyboxDn = "rbxassetid://119785634988565"
+}
+
+-- UI Setup
+local ui = Instance.new("ScreenGui")
+ui.Name = "AutoFarmUI"
+ui.ResetOnSpawn = false
+ui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 180, 0, 160)
+frame.Position = UDim2.new(0, 10, 0, 10)
+frame.BackgroundTransparency = 1 -- No background
+frame.Parent = ui
+
+local function createButton(text, posY)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 160, 0, 40)
+    btn.Position = UDim2.new(0, 10, 0, posY)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.BackgroundTransparency = 0.5
+    btn.BorderColor3 = Color3.new(0,0,0)
+    btn.BorderMode = Enum.BorderMode.Outline
+    btn.AutoButtonColor = false
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 18
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1,1,1)
+
+    -- Rounded corners
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+
+    -- Black outline for button
+    local outline = Instance.new("UIStroke")
+    outline.Color = Color3.new(0,0,0)
+    outline.Thickness = 1
+    outline.Parent = btn
+
+    -- Rainbow text with black outline
+    local textStroke = Instance.new("UIStroke")
+    textStroke.Color = Color3.new(0,0,0)
+    textStroke.Thickness = 1
+    textStroke.Parent = btn
+
+    btn.Parent = frame
+    return btn
+end
+
+local hopperButton = createButton("Hopper: ON", 10)
+local autoBuyButton = createButton("Auto Buy: ON", 60)
+local seedBuyButton = createButton("Seed Buy: ON", 110)
+
+-- Rainbow text updater
+spawn(function()
+    local step = 0
+    while true do
+        local hue = (step % 360) / 360
+        local color = Color3.fromHSV(hue, 1, 1)
+        for _, btn in ipairs({hopperButton, autoBuyButton, seedBuyButton}) do
+            btn.TextColor3 = color
+        end
+        step = step + 3
+        wait(0.03)
+    end
+end)
+
+-- Button toggles
+hopperButton.MouseButton1Click:Connect(function()
+    hopperRunning = not hopperRunning
+    hopperButton.Text = hopperRunning and "Hopper: ON" or "Hopper: OFF"
+end)
+
+autoBuyButton.MouseButton1Click:Connect(function()
+    autoBuyToggle = not autoBuyToggle
+    autoBuyButton.Text = autoBuyToggle and "Auto Buy: ON" or "Auto Buy: OFF"
+end)
+
+seedBuyButton.MouseButton1Click:Connect(function()
+    autoSeedBuyToggle = not autoSeedBuyToggle
+    seedBuyButton.Text = autoSeedBuyToggle and "Seed Buy: ON" or "Seed Buy: OFF"
+end)
+
+-- Auto Buy Logic
+spawn(function()
+    local items = {
+        "Chocolate Carrot",
+        "Red Lollipop",
+        "Candy Sunflower",
+        "Easter Egg",
+        "Chocolate Sprinkler",
+        "Candy Blossom"
+    }
+    while true do
+        if autoBuyToggle then
+            for _, item in ipairs(items) do
+                pcall(function()
+                    ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("BuyEventShopStock"):FireServer(item)
+                end)
+                wait(0.1)
+            end
+        end
+        wait(1)
+    end
+end)
+
+-- Seed Buy Logic
+spawn(function()
+    local seeds = {"Beanstalk", "Grape", "Pepper", "Cacao"}
+    while true do
+        if autoSeedBuyToggle then
+            for _, seed in ipairs(seeds) do
+                pcall(function()
+                    ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(seed)
+                end)
+                wait(0.1)
+            end
+        end
+        wait(1)
+    end
+end)
+
+-- Skybox matching function
+local function matchesSkybox(sky, target)
+    for key, id in pairs(target) do
+        local val = sky[key]
+        if not val or string.lower(val) ~= string.lower(id) then
+            return false
+        end
+    end
+    return true
+end
+
+local function isBloodmoon()
+    local sky = Lighting:FindFirstChildWhichIsA("Sky")
+    return sky and matchesSkybox(sky, bloodlitSkyboxIds)
+end
+
+local function isNightSky()
+    local sky = Lighting:FindFirstChildWhichIsA("Sky")
+    return sky and matchesSkybox(sky, nightSkyboxIds)
+end
+
+-- Get servers
+local function getServers()
+    local url = ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100"):format(PlaceId)
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(url))
+    end)
+    return (success and result and result.data) or {}
+end
+
+-- Server Hopper Logic
+spawn(function()
+    wait(15) -- Initial delay before first hop
+
+    while true do
+        if hopperRunning then
+            if isBloodmoon() then
+                print("🌕 Bloodmoon detected! Staying for 17 minutes...")
+                wait(1020) -- 17 minutes wait
+            else
+                print("🌍 Searching for server to hop...")
+                local servers = getServers()
+                local foundServer = false
+
+                for _, server in ipairs(servers) do
+                    if not hopperRunning then break end
+                    -- Check server is not current server and not VIP and not nearly full (allow 2+ players, avoid solo)
+                    if server.id ~= game.JobId and not server.vipServerId and server.playing >= 2 and server.playing < server.maxPlayers then
+                        local ok, err = pcall(function()
+                            TeleportService:TeleportToPlaceInstance(PlaceId, server.id, LocalPlayer)
+                        end)
+                        if ok then
+                            print("🔁 Teleporting to new server...")
+                            foundServer = true
+                            break
+                        else
+                            warn("❌ Teleport failed:", err)
+                        end
+                        wait(1)
+                    end
+                end
+
+                if not foundServer then
+                    print("⚠️ No suitable servers found, retrying in 15 seconds...")
+                end
+
+                wait(15)
+            end
+        else
+            wait(1)
+        end
+    end
+end)
+
+-- Anti-idle
+spawn(function()
+    local vu = game:GetService("VirtualUser")
+    Players.LocalPlayer.Idled:Connect(function()
+        vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        wait(1)
+        vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end)
+end)
