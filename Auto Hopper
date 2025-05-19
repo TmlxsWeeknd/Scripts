@@ -1,0 +1,155 @@
+-- Services
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local LocalPlayer = Players.LocalPlayer
+
+local PlaceId = game.PlaceId
+local running = true -- Hopper toggle flag
+local autoBuyToggle = false -- Auto buy toggle flag
+
+-- Bloodlit skybox IDs
+local bloodlitSkyboxIds = {
+    SkyboxBk = "rbxassetid://111321078595932",
+    SkyboxFt = "rbxassetid://95129324535672",
+    SkyboxLf = "rbxassetid://111970040506702",
+    SkyboxDn = "rbxassetid://82118430379285",
+    SkyboxRt = "rbxassetid://79353534175259",
+    SkyboxUp = "rbxassetid://84457327390960"
+}
+
+-- Create Hopper toggle UI
+local hopperGui = Instance.new("ScreenGui")
+hopperGui.Name = "HopperToggleUI"
+hopperGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local hopperButton = Instance.new("TextButton")
+hopperButton.Size = UDim2.new(0, 160, 0, 40)
+hopperButton.Position = UDim2.new(0, 10, 0, 70) -- Lower position for hopper button
+hopperButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+hopperButton.TextColor3 = Color3.new(1, 1, 1)
+hopperButton.Font = Enum.Font.SourceSansBold
+hopperButton.TextSize = 18
+hopperButton.Text = "Hopper: ON"
+hopperButton.Parent = hopperGui
+
+hopperButton.Activated:Connect(function()
+    running = not running
+    if running then
+        hopperButton.Text = "Hopper: ON"
+        hopperButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    else
+        hopperButton.Text = "Hopper: OFF"
+        hopperButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    end
+end)
+
+-- Create Auto Buy toggle UI
+local autoBuyGui = Instance.new("ScreenGui")
+autoBuyGui.Name = "AutoBuyGui"
+autoBuyGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local autoBuyButton = Instance.new("TextButton")
+autoBuyButton.Size = UDim2.new(0, 160, 0, 40)
+autoBuyButton.Position = UDim2.new(0, 10, 0, 10) -- Top position for auto buy button
+autoBuyButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+autoBuyButton.TextColor3 = Color3.new(1, 1, 1)
+autoBuyButton.Font = Enum.Font.SourceSansBold
+autoBuyButton.TextSize = 18
+autoBuyButton.Text = "Start Auto Buy"
+autoBuyButton.Parent = autoBuyGui
+
+-- Auto-buy function
+local function autoBuy()
+    while autoBuyToggle do
+        wait(0.1)
+        local items = {
+            "Chocolate Carrot",
+            "Red Lollipop",
+            "Candy Sunflower",
+            "Easter Egg",
+            "Chocolate Sprinkler",
+            "Candy Blossom"
+        }
+
+        for _, item in ipairs(items) do
+            if not autoBuyToggle then break end
+            pcall(function()
+                game:GetService("ReplicatedStorage")
+                    :WaitForChild("GameEvents", 5)
+                    :WaitForChild("BuyEventShopStock", 5)
+                    :FireServer(item)
+            end)
+        end
+    end
+end
+
+-- Auto buy button toggle
+autoBuyButton.MouseButton1Click:Connect(function()
+    autoBuyToggle = not autoBuyToggle
+    if autoBuyToggle then
+        autoBuyButton.Text = "Stop Auto Buy"
+        spawn(autoBuy) -- run autoBuy without blocking
+    else
+        autoBuyButton.Text = "Start Auto Buy"
+    end
+end)
+
+-- Detect if current skybox matches Bloodlit
+local function isBloodlit()
+    local sky = Lighting:FindFirstChildWhichIsA("Sky")
+    if not sky then return false end
+    for key, id in pairs(bloodlitSkyboxIds) do
+        local current = sky[key]
+        if not current or string.lower(current) ~= string.lower(id) then
+            return false
+        end
+    end
+    return true
+end
+
+-- Get list of public servers
+local function getServers()
+    local url = string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100", PlaceId)
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(url))
+    end)
+    if success and result and result.data then
+        return result.data
+    end
+    return {}
+end
+
+-- Main hopper logic
+local function runHopper()
+    while true do
+        if running then
+            if isBloodlit() then
+                print("✅ Bloodlit detected! Staying for 17 minutes...")
+                wait(1020)
+            else
+                print("❌ Not bloodlit. Searching for a new server...")
+                local servers = getServers()
+                for _, s in ipairs(servers) do
+                    if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                        wait(2)  -- wait 2 seconds before teleport
+                        if running then
+                            TeleportService:TeleportToPlaceInstance(PlaceId, s.id, LocalPlayer)
+                            wait(5)
+                        else
+                            print("⏸️ Hopper was turned off before teleport.")
+                        end
+                        break
+                    end
+                end
+                wait(10)
+            end
+        else
+            wait(1)
+        end
+    end
+end
+
+-- Run the hopper loop immediately
+spawn(runHopper)
