@@ -77,13 +77,12 @@ local function createButton(text, posX, posY)
     return btn
 end
 
--- Left column buttons
+-- Buttons
 local hopperButton = createButton("Hopper: ON", 10, 10)
 local autoBuyButton = createButton("Auto Buy: ON", 10, 60)
 local seedBuyButton = createButton("Seed Buy: ON", 10, 110)
 local managePetButton = createButton("Manage Pets List", 10, 160)
 
--- Top center buttons
 local function createTopCenterButton(text, offsetX)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 100, 0, 40)
@@ -119,7 +118,7 @@ end
 local minimizeButton = createTopCenterButton("Minimize", -110)
 local closeButton = createTopCenterButton("Close GUI", 10)
 
--- Rainbow text
+-- Rainbow Button Text
 spawn(function()
     local step = 0
     while running do
@@ -128,12 +127,12 @@ spawn(function()
         for _, btn in ipairs({hopperButton, autoBuyButton, seedBuyButton, managePetButton, minimizeButton, closeButton}) do
             btn.TextColor3 = color
         end
-        step += 3
+        step = step + 3
         wait(0.03)
     end
 end)
 
--- Toggles
+-- Button Logic
 hopperButton.MouseButton1Click:Connect(function()
     hopperRunning = not hopperRunning
     hopperButton.Text = hopperRunning and "Hopper: ON" or "Hopper: OFF"
@@ -167,8 +166,13 @@ managePetButton.MouseButton1Click:Connect(function()
 end)
 
 minimizeButton.MouseButton1Click:Connect(function()
-    frame.Visible = not frame.Visible
-    minimizeButton.Text = frame.Visible and "Minimize" or "Maximize"
+    if frame.Visible then
+        frame.Visible = false
+        minimizeButton.Text = "Maximize"
+    else
+        frame.Visible = true
+        minimizeButton.Text = "Minimize"
+    end
 end)
 
 closeButton.MouseButton1Click:Connect(function()
@@ -176,9 +180,12 @@ closeButton.MouseButton1Click:Connect(function()
     ui:Destroy()
 end)
 
--- Fast Auto Buy
+-- Auto Buy
 spawn(function()
-    local items = {"Chocolate Carrot", "Red Lollipop", "Candy Sunflower", "Easter Egg", "Chocolate Sprinkler", "Candy Blossom"}
+    local items = {
+        "Chocolate Carrot", "Red Lollipop", "Candy Sunflower",
+        "Easter Egg", "Chocolate Sprinkler", "Candy Blossom"
+    }
     while running do
         if autoBuyToggle then
             for _, item in ipairs(items) do
@@ -192,7 +199,7 @@ spawn(function()
     end
 end)
 
--- Fast Seed Buy
+-- Auto Seed Buy
 spawn(function()
     local seeds = {"Beanstalk", "Grape", "Pepper", "Cacao"}
     while running do
@@ -208,7 +215,7 @@ spawn(function()
     end
 end)
 
--- Skybox check
+-- Skybox Checker
 local function matchesSkybox(sky, target)
     for key, id in pairs(target) do
         local val = sky[key]
@@ -224,41 +231,40 @@ local function isBloodmoon()
     return sky and matchesSkybox(sky, bloodlitSkyboxIds)
 end
 
--- Improved server list fetcher
+-- Get Servers
 local function getServers()
     local servers = {}
     local cursor = ""
-    local baseUrl = "https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100"
-    for _ = 1, 5 do
-        local url = baseUrl:format(PlaceId)
-        if cursor ~= "" then
-            url = url .. "&cursor=" .. cursor
-        end
-        local success, response = pcall(function()
+    local maxPages = 5
+    local pagesLoaded = 0
+
+    repeat
+        local url = ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100&cursor=%s"):format(PlaceId, cursor)
+        local success, result = pcall(function()
             return HttpService:JSONDecode(game:HttpGet(url))
         end)
-        if success and response and response.data then
-            for _, server in ipairs(response.data) do
-                if server.id ~= game.JobId and not server.vipServerId and server.playing < server.maxPlayers then
+
+        if success and result and result.data then
+            for _, server in ipairs(result.data) do
+                if server.playing < server.maxPlayers and not server.vipServerId then
                     table.insert(servers, server)
                 end
             end
-            if response.nextPageCursor then
-                cursor = response.nextPageCursor
-            else
-                break
-            end
+            cursor = result.nextPageCursor or ""
+            pagesLoaded += 1
         else
             break
         end
-    end
+        wait()
+    until cursor == "" or pagesLoaded >= maxPages
+
     return servers
 end
 
 -- Server Hopper
 spawn(function()
-    wait(5)
     while running do
+        wait(15) -- Delay before every hop check
         if hopperRunning then
             if isBloodmoon() then
                 print("🌕 Bloodmoon detected! Staying for 17 minutes...")
@@ -267,29 +273,28 @@ spawn(function()
                 print("🌍 Hopping servers...")
                 local servers = getServers()
                 local foundServer = false
+
                 for _, server in ipairs(servers) do
                     if not hopperRunning or not running then break end
-                    if server.id and server.id ~= game.JobId then
-                        local success, err = pcall(function()
+                    if server.id ~= game.JobId and not server.vipServerId then
+                        local ok, err = pcall(function()
                             TeleportService:TeleportToPlaceInstance(PlaceId, server.id, LocalPlayer)
                         end)
-                        if success then
+                        if ok then
                             print("🔁 Teleporting to new server...")
                             foundServer = true
                             break
                         else
                             warn("❌ Teleport failed:", err)
                         end
+                        wait(1)
                     end
-                    wait(1)
                 end
+
                 if not foundServer then
-                    print("⚠️ No servers found, retrying in 5 seconds...")
-                    wait(5)
+                    print("⚠️ No servers found, retrying in 15 seconds...")
                 end
             end
-        else
-            wait(1)
         end
     end
 end)
