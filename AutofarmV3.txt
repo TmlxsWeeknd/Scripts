@@ -1,0 +1,361 @@
+-- Services
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local PlaceId = game.PlaceId
+
+-- Flags
+local running = true
+local hopperRunning = true
+local autoBuyToggle = true
+local autoSeedBuyToggle = true
+local crashServerRunning = false
+
+-- Skybox IDs
+local bloodlitSkyboxIds = {
+    SkyboxBk = "rbxassetid://111321078595932",
+    SkyboxFt = "rbxassetid://95129324535672",
+    SkyboxLf = "rbxassetid://111970040506702",
+    SkyboxDn = "rbxassetid://82118430379285",
+    SkyboxRt = "rbxassetid://79353534175259",
+    SkyboxUp = "rbxassetid://84457327390960"
+}
+
+local nightSkyboxIds = {
+    SkyboxBk = "rbxassetid://135897169947130",
+    SkyboxFt = "rbxassetid://107905878941696",
+    SkyboxLf = "rbxassetid://91354764228778",
+    SkyboxRt = "rbxassetid://101750516482570",
+    SkyboxUp = "rbxassetid://123019651557734",
+    SkyboxDn = "rbxassetid://119785634988565"
+}
+
+-- UI Setup
+local ui = Instance.new("ScreenGui")
+ui.Name = "AutoFarmUI"
+ui.ResetOnSpawn = false
+ui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 180, 0, 260)
+frame.Position = UDim2.new(0, 10, 0, 10)
+frame.BackgroundTransparency = 1
+frame.Parent = ui
+
+local function createButton(text, posX, posY)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 160, 0, 40)
+    btn.Position = UDim2.new(0, posX, 0, posY)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.BackgroundTransparency = 0.5
+    btn.BorderColor3 = Color3.new(0,0,0)
+    btn.BorderMode = Enum.BorderMode.Outline
+    btn.AutoButtonColor = false
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 18
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1,1,1)
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+
+    local outline = Instance.new("UIStroke")
+    outline.Color = Color3.new(0,0,0)
+    outline.Thickness = 1
+    outline.Parent = btn
+
+    local textStroke = Instance.new("UIStroke")
+    textStroke.Color = Color3.new(0,0,0)
+    textStroke.Thickness = 1
+    textStroke.Parent = btn
+
+    btn.Parent = frame
+    return btn
+end
+
+-- Left column buttons
+local hopperButton = createButton("Hopper: ON", 10, 10)
+local autoBuyButton = createButton("Auto Buy: ON", 10, 60)
+local seedBuyButton = createButton("Seed Buy: ON", 10, 110)
+local crashServerButton = createButton("Crash Server: OFF", 10, 160)
+local managePetButton = createButton("Manage Pets List", 10, 210)
+
+-- Top center buttons
+local function createTopCenterButton(text, offsetX)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 100, 0, 40)
+    btn.Position = UDim2.new(0.5, offsetX, 0, -45)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.BackgroundTransparency = 0.5
+    btn.BorderColor3 = Color3.new(0,0,0)
+    btn.BorderMode = Enum.BorderMode.Outline
+    btn.AutoButtonColor = false
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 18
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1,1,1)
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+
+    local outline = Instance.new("UIStroke")
+    outline.Color = Color3.new(0,0,0)
+    outline.Thickness = 1
+    outline.Parent = btn
+
+    local textStroke = Instance.new("UIStroke")
+    textStroke.Color = Color3.new(0,0,0)
+    textStroke.Thickness = 1
+    textStroke.Parent = btn
+
+    btn.Parent = ui
+    return btn
+end
+
+local minimizeButton = createTopCenterButton("Minimize", -110)
+local closeButton = createTopCenterButton("Close GUI", 10)
+
+-- Rainbow button text
+spawn(function()
+    local step = 0
+    while running do
+        local hue = (step % 360) / 360
+        local color = Color3.fromHSV(hue, 1, 1)
+        for _, btn in ipairs({hopperButton, autoBuyButton, seedBuyButton, crashServerButton, managePetButton, minimizeButton, closeButton}) do
+            btn.TextColor3 = color
+        end
+        step = step + 3
+        wait(0.03)
+    end
+end)
+
+-- Button toggles
+hopperButton.MouseButton1Click:Connect(function()
+    hopperRunning = not hopperRunning
+    hopperButton.Text = hopperRunning and "Hopper: ON" or "Hopper: OFF"
+end)
+
+autoBuyButton.MouseButton1Click:Connect(function()
+    autoBuyToggle = not autoBuyToggle
+    autoBuyButton.Text = autoBuyToggle and "Auto Buy: ON" or "Auto Buy: OFF"
+end)
+
+seedBuyButton.MouseButton1Click:Connect(function()
+    autoSeedBuyToggle = not autoSeedBuyToggle
+    seedBuyButton.Text = autoSeedBuyToggle and "Seed Buy: ON" or "Seed Buy: OFF"
+end)
+
+crashServerButton.MouseButton1Click:Connect(function()
+    crashServerRunning = not crashServerRunning
+    crashServerButton.Text = crashServerRunning and "Crash Server: ON" or "Crash Server: OFF"
+end)
+
+managePetButton.MouseButton1Click:Connect(function()
+    local petUI = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("ActivePetUI")
+    if petUI then
+        local frame = petUI:FindFirstChild("Frame")
+        if frame then
+            local main = frame:FindFirstChild("Main")
+            if main then
+                local opener = main:FindFirstChild("Opener")
+                if opener then
+                    opener.Visible = not opener.Visible
+                    petUI.Enabled = true
+                end
+            end
+        end
+    end
+end)
+
+minimizeButton.MouseButton1Click:Connect(function()
+    if frame.Visible then
+        frame.Visible = false
+        minimizeButton.Text = "Maximize"
+    else
+        frame.Visible = true
+        minimizeButton.Text = "Minimize"
+    end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    running = false
+    ui:Destroy()
+end)
+
+-- Auto Buy
+spawn(function()
+    local items = {"Chocolate Carrot", "Red Lollipop", "Candy Sunflower", "Easter Egg", "Chocolate Sprinkler", "Candy Blossom"}
+    while running do
+        if autoBuyToggle then
+            for _, item in ipairs(items) do
+                pcall(function()
+                    ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("BuyEventShopStock"):FireServer(item)
+                end)
+                wait()
+            end
+        end
+        wait(0.1)
+    end
+end)
+
+-- Seed Buy
+spawn(function()
+    local seeds = {"Beanstalk", "Grape", "Pepper", "Cacao"}
+    while running do
+        if autoSeedBuyToggle then
+            for _, seed in ipairs(seeds) do
+                pcall(function()
+                    ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(seed)
+                end)
+                wait()
+            end
+        end
+        wait(0.1)
+    end
+end)
+
+-- Crash Server (Tool Flicker)
+spawn(function()
+    while running do
+        if crashServerRunning then
+            local backpack = LocalPlayer:WaitForChild("Backpack")
+            local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+            for _, tool in ipairs(backpack:GetChildren()) do
+                if tool:IsA("Tool") then
+                    tool.Parent = character
+                end
+            end
+
+            wait(0.1)
+
+            for _, tool in ipairs(character:GetChildren()) do
+                if tool:IsA("Tool") then
+                    tool.Parent = backpack
+                end
+            end
+
+            wait(0.1)
+        else
+            wait(0.2)
+        end
+    end
+end)
+
+-- Skybox check
+local function matchesSkybox(sky, target)
+    for key, id in pairs(target) do
+        local val = sky[key]
+        if not val or string.lower(val) ~= string.lower(id) then
+            return false
+        end
+    end
+    return true
+end
+
+local function isBloodmoon()
+    local sky = Lighting:FindFirstChildWhichIsA("Sky")
+    return sky and matchesSkybox(sky, bloodlitSkyboxIds)
+end
+
+-- Server Hop Improved
+local lastHopAttempt = 0
+local function Notify(title, text)
+    game.StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = 5
+    })
+end
+
+local function serverHop()
+    if os.time() - lastHopAttempt < 5 then
+        Notify("Please Wait", "Server hop cooldown...")
+        return false
+    end
+    lastHopAttempt = os.time()
+
+    local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    if not req then
+        Notify("Error", "No HTTP request function available")
+        return false
+    end
+    task.wait(math.random(1, 3))
+
+    local res = req({
+        Url = ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true"):format(PlaceId),
+        Method = "GET"
+    })
+
+    if res.StatusCode == 429 then
+        Notify("Rate Limited", "Please wait a few minutes before trying again")
+        return false
+    elseif res.StatusCode ~= 200 then
+        Notify("Error", "Server request failed (Code: "..res.StatusCode..")")
+        return false
+    end
+
+    local success, data = pcall(HttpService.JSONDecode, HttpService, res.Body)
+    if not success or not data or not data.data then
+        Notify("Error", "Failed to read server data")
+        return false
+    end
+
+    local list = {}
+    for _, v in ipairs(data.data) do
+        if type(v) == "table" and v.id ~= game.JobId then
+            local playing = tonumber(v.playing) or 0
+            local max = tonumber(v.maxPlayers) or 100
+            if playing < max then
+                table.insert(list, v.id)
+            end
+        end
+    end
+
+    if #list > 0 then
+        Notify("Server Hop", "Teleporting to better server...")
+        task.wait(0.5)
+        TeleportService:TeleportToPlaceInstance(PlaceId, list[math.random(#list)], LocalPlayer)
+        return true
+    else
+        Notify("No Servers", "No available servers found")
+        return false
+    end
+end
+
+spawn(function()
+    wait(15)
+    while running do
+        if hopperRunning then
+            if isBloodmoon() then
+                print("🌕 Bloodmoon detected! Staying for 17 minutes...")
+                wait(1020)
+            else
+                local success, err = pcall(serverHop)
+                if not success then
+                    print("Server hop error:", err)
+                end
+                wait(15)
+            end
+        else
+            wait(1)
+        end
+    end
+end)
+
+-- Anti-idle
+spawn(function()
+    local vu = game:GetService("VirtualUser")
+    Players.LocalPlayer.Idled:Connect(function()
+        if not running then return end
+        vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        wait(1)
+        vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end)
+end)
