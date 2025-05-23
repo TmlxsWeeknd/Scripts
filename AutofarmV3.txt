@@ -190,7 +190,7 @@ end)
 
 -- Auto Buy
 spawn(function()
-    local items = {"Chocolate Carrot", "Red Lollipop", "Candy Sunflower", "Easter Egg", "Chocolate Sprinkler", "Candy Blossom"}
+    local items = {"Chocolate Carrot", "Red Lollipop", "Candy Sunflower", "Easter Egg", "Chocolate Sprinkler", "Candy Blossom", "Mysterious Crate", "Night Seed Pack", "Night Egg", "Blood Banana", "Moon Melon", "Star Caller", "Blood Kiwi", "Blood Owl"}
     while running do
         if autoBuyToggle then
             for _, item in ipairs(items) do
