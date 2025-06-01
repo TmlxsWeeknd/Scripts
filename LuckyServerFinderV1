@@ -1,113 +1,108 @@
+-- SETTINGS
+local hopCooldown = 1 -- seconds between checks (shouldn't be too fast)
+local waitBeforeCheck = 300 -- 5 minutes
+
 -- SERVICES
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
-local RunService = game:GetService("RunService")
-
--- SETTINGS
-local gameId = game.PlaceId
 local player = Players.LocalPlayer
 local gui = player:WaitForChild("PlayerGui")
-local hopCooldown = 0.5
+
+-- FLAGS
+local hopping = true
+local luckFound = false
+local gameId = game.PlaceId
 
 -- UI SETUP
 local screenGui = Instance.new("ScreenGui", gui)
-screenGui.Name = "LuckHopUI"
 screenGui.ResetOnSpawn = false
+screenGui.Name = "LuckHopUI"
 
-local function createButton(name, posY, width, height)
+local function createButton(name, positionY)
     local btn = Instance.new("TextButton")
-    btn.Name = name
-    btn.Size = UDim2.new(0, width, 0, height)
-    btn.Position = UDim2.new(0, 10, 0, posY)
-    btn.BackgroundColor3 = Color3.new(0,0,0)
+    btn.Size = UDim2.new(0, 250, 0, 40)
+    btn.Position = UDim2.new(0, 10, 0, positionY)
+    btn.BackgroundColor3 = Color3.new(0, 0, 0)
     btn.BackgroundTransparency = 0.5
-    btn.TextColor3 = Color3.new(1,1,1)
+    btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.SciFi
-    btn.TextSize = 20
-    btn.Text = name
+    btn.TextSize = 18
+    btn.TextWrapped = true
+    btn.AutoButtonColor = true
     btn.BorderSizePixel = 0
-    local uic = Instance.new("UICorner", btn)
-    uic.CornerRadius = UDim.new(0,12)
+
+    -- Rounded corners
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = btn
+
+    -- Rainbow effect
+    spawn(function()
+        local h = 0
+        while true do
+            btn.TextColor3 = Color3.fromHSV(h, 1, 1)
+            h = (h + 0.01) % 1
+            wait(0.03)
+        end
+    end)
+
     btn.Parent = screenGui
     return btn
 end
 
-local toggleButton = createButton("Luck Hop: ON", 50, 250, 40)
-local statusButton = createButton("Status: Searching for Luck...", 100, 280, 30)
+local toggleButton = createButton("Toggle Luck Hop (ON)", 100)
+local statusButton = createButton("Status: Waiting...", 150)
+statusButton.Size = UDim2.new(0, 280, 0, 35)
 
--- RAINBOW TEXT EFFECT
-spawn(function()
-    while true do
-        local t = tick()
-        local rainbow = Color3.fromHSV((t % 5) / 5, 1, 1)
-        toggleButton.TextColor3 = rainbow
-        statusButton.TextColor3 = rainbow
-        RunService.RenderStepped:Wait()
-    end
+-- TOGGLE FUNCTIONALITY
+toggleButton.MouseButton1Click:Connect(function()
+    hopping = not hopping
+    toggleButton.Text = hopping and "Toggle Luck Hop (ON)" or "Toggle Luck Hop (OFF)"
 end)
 
 -- ANTI-AFK
+pcall(function()
+    for _, conn in pairs(getconnections(player.Idled)) do
+        conn:Disable()
+    end
+end)
 player.Idled:Connect(function()
-    local vu = game:GetService("VirtualUser")
-    vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
     wait(1)
-    vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
 end)
 
-local hopping = true
-local luckFound = false
-
-toggleButton.MouseButton1Click:Connect(function()
-    hopping = not hopping
-    toggleButton.Text = "Luck Hop: " .. (hopping and "ON" or "OFF")
-end)
-
-statusButton.MouseButton1Click:Connect(function()
-    if luckFound then
-        local serverLink = "https://www.roblox.com/games/" .. tostring(gameId) .. "/" .. tostring(game.JobId)
-        setclipboard(serverLink)
-        statusButton.Text = "✅ Server link copied!"
-        wait(2)
-        statusButton.Text = "Status: Playtime Luck FOUND!"
-    else
-        statusButton.Text = "No luck yet!"
-        wait(1)
-        statusButton.Text = "Status: Searching for Luck..."
-    end
-end)
-
+-- SERVER SCRAPER (public servers)
 local function getServers()
-    local servers = {}
-    local cursor = ""
-    local url = "https://games.roblox.com/v1/games/"..tostring(gameId).."/servers/Public?limit=100"
-    while true do
-        local reqUrl = url..(cursor ~= "" and ("&cursor="..cursor) or "")
-        local success, res = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet(reqUrl))
-        end)
-        if success and res and res.data then
-            for _, v in ipairs(res.data) do
-                if v.playing < v.maxPlayers and v.id ~= game.JobId then
-                    table.insert(servers, v.id)
-                end
+    local url = "https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100"
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(url))
+    end)
+    if success and result and result.data then
+        local servers = {}
+        for _, server in pairs(result.data) do
+            if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                table.insert(servers, server.id)
             end
-            if res.nextPageCursor then
-                cursor = res.nextPageCursor
-            else
-                break
-            end
-        else
-            break
         end
+        return servers
     end
-    return servers
+    return {}
 end
 
 -- MAIN LOOP
-task.spawn(function()
+spawn(function()
+    wait(3) -- Let game fully load
     while true do
         if hopping and not luckFound then
+            -- 5-min Wait
+            for i = waitBeforeCheck, 1, -1 do
+                statusButton.Text = string.format("⏳ Waiting... %ds", i)
+                wait(1)
+            end
+
+            -- Luck Detection
             local luckFrame = nil
             pcall(function()
                 luckFrame = gui:FindFirstChild("Bottom_UI", true)
@@ -120,13 +115,14 @@ task.spawn(function()
             if luckFrame and luckFrame.Visible and luckFrame.Active then
                 luckFound = true
                 statusButton.Text = "✅ Status: Playtime Luck FOUND!"
+                setclipboard("https://www.roblox.com/games/" .. gameId .. "?jobId=" .. game.JobId)
             else
-                statusButton.Text = "Status: No Luck | Hopping..."
+                statusButton.Text = "❌ No Luck | Hopping..."
                 local servers = getServers()
                 if #servers > 0 then
                     TeleportService:TeleportToPlaceInstance(gameId, servers[math.random(1, #servers)])
                 else
-                    statusButton.Text = "⚠️ No servers found, retrying..."
+                    statusButton.Text = "⚠️ No servers found. Retrying..."
                 end
             end
         end
