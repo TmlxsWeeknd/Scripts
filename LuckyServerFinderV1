@@ -6,7 +6,7 @@
 
 -- UI Setup local screenGui = Instance.new("ScreenGui", gui) screenGui.ResetOnSpawn = false
 
-local function createButton(name, posY, defaultText, sizeX, sizeY, posX) local btn = Instance.new("TextButton") btn.Name = name btn.Size = UDim2.new(0, sizeX or 220, 0, sizeY or 40) btn.Position = UDim2.new(0, posX or 10, 0, posY) btn.BackgroundColor3 = Color3.new(0, 0, 0) btn.BackgroundTransparency = 0.5 btn.TextColor3 = Color3.new(1, 1, 1) btn.Font = Enum.Font.SciFi btn.TextSize = 20 btn.Text = defaultText btn.AutoButtonColor = true btn.TextWrapped = true btn.Parent = screenGui
+local function createButton(name, pos, defaultText, size, parent) local btn = Instance.new("TextButton") btn.Name = name btn.Size = size or UDim2.new(0, 220, 0, 40) btn.Position = pos btn.BackgroundColor3 = Color3.new(0, 0, 0) btn.BackgroundTransparency = 0.5 btn.TextColor3 = Color3.new(1, 1, 1) btn.Font = Enum.Font.SciFi btn.TextSize = 20 btn.Text = defaultText btn.AutoButtonColor = true btn.TextWrapped = true btn.Parent = parent or screenGui
 
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 8)
@@ -23,7 +23,7 @@ return btn
 
 end
 
-local toggleButton = createButton("LuckHopper", 40, "Luck Hopper: ON") local statusButton = createButton("Status", 85, "Status: Searching...") local skipButton = createButton("Skip", 85, "Skip", 60, 40, 240)
+-- Main buttons local toggleButton = createButton("LuckHopper", UDim2.new(0, 10, 0, 40), "Luck Hopper: ON") local statusButton = createButton("Status", UDim2.new(0, 10, 0, 85), "Status: Searching...", UDim2.new(0, 220, 0, 40)) local skipButton = createButton("Skip", UDim2.new(0, 240, 0, 85), "Skip", UDim2.new(0, 60, 0, 40))
 
 -- Toggle Function toggleButton.MouseButton1Click:Connect(function() hopping = not hopping toggleButton.Text = hopping and "Luck Hopper: ON" or "Luck Hopper: OFF" end)
 
@@ -91,3 +91,4 @@ else
 end
 
 end
+
