@@ -108,6 +108,10 @@ spawn(function()
                 wait(1)
             end
 
+            -- 🔁 New grace delay after timer
+            statusButton.Text = "⏳ Checking for Luck..."
+            wait(3)
+
             -- Luck detection logic
             local luckFrame
             pcall(function()
