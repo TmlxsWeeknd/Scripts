@@ -1,94 +1,36 @@
---[[ Luck Server Hopper with Retry, Status UI, Toggle, Skip, and Anti-AFK Delta Mobile Compatible | Automatically Copies Server Link When Luck Found ]]--
+--// Luck Hopper GUI Script with Enhanced Status and UI --
 
--- Services local TeleportService = game:GetService("TeleportService") local Players = game:GetService("Players") local HttpService = game:GetService("HttpService") local player = Players.LocalPlayer local gui = player:WaitForChild("PlayerGui")
+-- Services local Players = game:GetService("Players") local TeleportService = game:GetService("TeleportService") local HttpService = game:GetService("HttpService") local LocalPlayer = Players.LocalPlayer local GuiService = game:GetService("GuiService")
 
--- Game ID local gameId = game.PlaceId local waitBeforeCheck = 300 -- 5 minutes countdown local remainingTime = waitBeforeCheck local hopping = true local retrying = false
+-- Variables local hopperEnabled = true local minimized = false local countdownTime = 300 local runService = game:GetService("RunService") local placeId = game.PlaceId local luckFound = false
 
--- UI Setup local screenGui = Instance.new("ScreenGui", gui) screenGui.ResetOnSpawn = false
+-- UI Creation local screenGui = Instance.new("ScreenGui") screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") screenGui.ResetOnSpawn = false screenGui.Name = "LuckHopperUI"
 
-local function createButton(name, pos, defaultText, size, parent) local btn = Instance.new("TextButton") btn.Name = name btn.Size = size or UDim2.new(0, 220, 0, 40) btn.Position = pos btn.BackgroundColor3 = Color3.new(0, 0, 0) btn.BackgroundTransparency = 0.5 btn.TextColor3 = Color3.new(1, 1, 1) btn.Font = Enum.Font.SciFi btn.TextSize = 20 btn.Text = defaultText btn.AutoButtonColor = true btn.TextWrapped = true btn.Parent = parent or screenGui
+local function createButton(name, text, position, size) local button = Instance.new("TextButton") button.Name = name button.Text = text button.Size = size button.Position = position button.BackgroundColor3 = Color3.new(0, 0, 0) button.BackgroundTransparency = 0.5 button.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1) button.Font = Enum.Font.SciFi button.TextSize = 20 button.TextWrapped = true button.BorderSizePixel = 0
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = btn
+local uicorner = Instance.new("UICorner")
+uicorner.CornerRadius = UDim.new(0, 8)
+uicorner.Parent = button
 
-coroutine.wrap(function()
-    while task.wait(0.1) do
-        local hue = tick() % 5 / 5
-        btn.TextColor3 = Color3.fromHSV(hue, 1, 1)
-    end
-end)()
-
-return btn
+button.Parent = screenGui
+return button
 
 end
 
--- Main buttons local toggleButton = createButton("LuckHopper", UDim2.new(0, 10, 0, 40), "Luck Hopper: ON") local statusButton = createButton("Status", UDim2.new(0, 10, 0, 85), "Status: Searching...", UDim2.new(0, 220, 0, 40)) local skipButton = createButton("Skip", UDim2.new(0, 240, 0, 85), "Skip", UDim2.new(0, 60, 0, 40))
+-- Buttons local hopperButton = createButton("HopperButton", "Luck Hopper: On", UDim2.new(0, 10, 0, 50), UDim2.new(0, 180, 0, 40)) local statusLabel = createButton("StatusLabel", "Status: Luck | ❓ | Time Left ⌛ : 300", UDim2.new(0, 10, 0, 100), UDim2.new(0, 300, 0, 40)) local skipButton = createButton("SkipButton", "Skip", UDim2.new(0, 10, 0, 150), UDim2.new(0, 100, 0, 40)) local minimizeButton = createButton("MinimizeButton", "Minimize", UDim2.new(0, 120, 0, 150), UDim2.new(0, 120, 0, 40)) local closeButton = createButton("CloseButton", "Close", UDim2.new(0, 250, 0, 150), UDim2.new(0, 120, 0, 40))
 
--- Toggle Function toggleButton.MouseButton1Click:Connect(function() hopping = not hopping toggleButton.Text = hopping and "Luck Hopper: ON" or "Luck Hopper: OFF" end)
+-- Rainbow Text Animation spawn(function() while true do local hue = tick() % 5 / 5 local color = Color3.fromHSV(hue, 1, 1) for _, button in pairs({hopperButton, statusLabel, skipButton, minimizeButton, closeButton}) do button.TextColor3 = color end wait(0.1) end end)
 
--- Skip Function skipButton.MouseButton1Click:Connect(function() remainingTime = 0 end)
+-- Function to check for luck frame local function hasLuck() local success, result = pcall(function() local luck = LocalPlayer.PlayerGui:WaitForChild("Bottom_UI", 2) :WaitForChild("BottomFrame", 2) :WaitForChild("Holder", 2) :WaitForChild("List", 2) :FindFirstChild("Luck") return luck and luck.Visible and luck.Active end) return success and result end
 
--- Anti-AFK pcall(function() local vu = game:GetService("VirtualUser") player.Idled:Connect(function() vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame) task.wait(1) vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame) end) end)
+-- Server Hop Function local function hopServer() local servers = HttpService:JSONDecode(game:HttpGet( "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100")) for _, server in pairs(servers.data) do if server.playing < server.maxPlayers and server.id ~= game.JobId then TeleportService:TeleportToPlaceInstance(placeId, server.id) return end end end
 
--- Get Server List local function getServers() local servers = {} local cursor = "" local success, result = pcall(function() return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100&cursor=" .. cursor)) end)
+-- Countdown Loop spawn(function() while true do if hopperEnabled and not luckFound then for i = countdownTime, 0, -1 do if not hopperEnabled then break end if luckFound then break end statusLabel.Text = "Status: Luck | ❓ | Time Left ⌛ : " .. i wait(1) end if not hasLuck() then statusLabel.Text = "Status: No Luck! ❌ | Hopping shortly..." wait(0.5) hopServer() else luckFound = true statusLabel.Text = "Status: Found Luck! ✅ | Hopping Finished." end end wait(0.1) end end)
 
-if success and result and result.data then
-    for _, server in ipairs(result.data) do
-        if server.playing < server.maxPlayers and server.id ~= game.JobId then
-            table.insert(servers, server.id)
-        end
-    end
-end
+-- Hopper Toggle hopperButton.MouseButton1Click:Connect(function() hopperEnabled = not hopperEnabled hopperButton.Text = "Luck Hopper: " .. (hopperEnabled and "On" or "Off") end)
 
-return servers
+-- Skip Button skipButton.MouseButton1Click:Connect(function() if hopperEnabled then hopServer() end end)
 
-end
+-- Minimize Button minimizeButton.MouseButton1Click:Connect(function() minimized = not minimized for _, element in pairs(screenGui:GetChildren()) do if element:IsA("TextButton") and element.Name ~= "MinimizeButton" then element.Visible = not minimized end end end)
 
--- Retry on Teleport Failure TeleportService.TeleportInitFailed:Connect(function(player, result, err) if retrying then warn("Teleport failed: " .. result.Name .. ", retrying...") task.wait(1) local retryServers = getServers() if #retryServers > 0 then local newServer = retryServers[math.random(1, #retryServers)] pcall(function() TeleportService:TeleportToPlaceInstance(gameId, newServer) end) end end end)
-
--- Main Loop while task.wait(1) do if hopping then remainingTime -= 1 statusButton.Text = "Status: No Playtime Luck | Time Left: " .. remainingTime .. "s"
-
-if remainingTime <= 0 then
-        local luckFrame = nil
-        pcall(function()
-            local bottomUI = gui:FindFirstChild("Bottom_UI", true)
-            if bottomUI then
-                local frame = bottomUI:FindFirstChild("BottomFrame", true)
-                if frame then
-                    local holder = frame:FindFirstChild("Holder", true)
-                    if holder then
-                        local list = holder:FindFirstChild("List", true)
-                        if list then
-                            luckFrame = list:FindFirstChild("Luck", true)
-                        end
-                    end
-                end
-            end
-        end)
-
-        if luckFrame and luckFrame.Visible and luckFrame.Active then
-            statusButton.Text = "✅ Status: Playtime Luck FOUND!"
-            setclipboard("https://www.roblox.com/games/" .. gameId .. "?jobId=" .. game.JobId)
-            hopping = false
-        else
-            statusButton.Text = "❌ No Luck | Hopping..."
-            remainingTime = waitBeforeCheck -- reset timer
-            local servers = getServers()
-            if #servers > 0 then
-                local target = servers[math.random(1, #servers)]
-                retrying = true
-                pcall(function()
-                    TeleportService:TeleportToPlaceInstance(gameId, target)
-                end)
-            else
-                statusButton.Text = "⚠️ No servers available"
-            end
-        end
-    end
-else
-    statusButton.Text = "⏸️ Hopper is OFF"
-end
-
-end
-
+-- Close Button closeButton.MouseButton1Click:Connect(function() hopperEnabled = false screenGui:Destroy() end)
