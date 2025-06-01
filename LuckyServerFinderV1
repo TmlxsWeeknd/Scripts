@@ -1,6 +1,6 @@
 -- SETTINGS
 local hopCooldown = 1
-local waitBeforeCheck = 300 -- 5 mins
+local waitBeforeCheck = 300 -- 5 minutes
 
 -- SERVICES
 local Players = game:GetService("Players")
@@ -13,6 +13,7 @@ local gui = player:WaitForChild("PlayerGui")
 local hopping = true
 local luckFound = false
 local gameId = game.PlaceId
+local remainingTime = waitBeforeCheck
 
 -- CLEAN UI
 if gui:FindFirstChild("LuckHopUI") then
@@ -46,7 +47,7 @@ local function createStyledButton(name, text, posY, width, height)
     spawn(function()
         local h = 0
         while true do
-            if button.Parent == nil then return end
+            if not button:IsDescendantOf(game) then return end
             button.TextColor3 = Color3.fromHSV(h, 1, 1)
             h = (h + 0.01) % 1
             wait(0.03)
@@ -66,7 +67,7 @@ toggleButton.MouseButton1Click:Connect(function()
     hopping = not hopping
     toggleButton.Text = hopping and "Luck Hopper: ON" or "Luck Hopper: OFF"
     if not hopping then
-        statusButton.Text = "⏹️ Hopper paused."
+        statusButton.Text = "⏹️ Hopper paused at " .. remainingTime .. "s"
     end
 end)
 
@@ -78,9 +79,9 @@ pcall(function()
 end)
 player.Idled:Connect(function()
     local vu = game:GetService("VirtualUser")
-    vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
     wait(1)
-    vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
 end)
 
 -- Server list fetcher
@@ -105,18 +106,22 @@ spawn(function()
     wait(3)
     while true do
         if hopping and not luckFound then
-            -- Countdown with cancel check
-            for i = waitBeforeCheck, 1, -1 do
+            -- Countdown with pause support
+            while remainingTime > 0 do
                 if not hopping then
-                    statusButton.Text = "⏹️ Hopper paused."
+                    statusButton.Text = "⏹️ Hopper paused at " .. remainingTime .. "s"
                     break
                 end
-                statusButton.Text = string.format("Status: ⏳ Waiting... %ds", i)
+                statusButton.Text = string.format("Status: ⏳ Waiting... %ds", remainingTime)
                 wait(1)
+                remainingTime -= 1
             end
 
-            -- Abort if paused mid-countdown
-            if not hopping then continue end
+            -- Skip if paused mid-countdown
+            if not hopping then
+                wait(hopCooldown)
+                continue
+            end
 
             -- Final check delay
             statusButton.Text = "⏳ Checking for Luck..."
@@ -138,9 +143,13 @@ spawn(function()
                 setclipboard("https://www.roblox.com/games/" .. gameId .. "?jobId=" .. game.JobId)
             else
                 statusButton.Text = "❌ No Luck | Hopping..."
+                remainingTime = waitBeforeCheck
 
                 local servers = getServers()
-                if not hopping then continue end
+                if not hopping then
+                    wait(hopCooldown)
+                    continue
+                end
                 if #servers > 0 then
                     TeleportService:TeleportToPlaceInstance(gameId, servers[math.random(1, #servers)])
                 else
