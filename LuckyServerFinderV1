@@ -1,5 +1,5 @@
 -- SETTINGS
-local hopCooldown = 1 -- seconds between checks (shouldn't be too fast)
+local hopCooldown = 1 -- delay between server checks
 local waitBeforeCheck = 300 -- 5 minutes
 
 -- SERVICES
@@ -14,96 +14,102 @@ local hopping = true
 local luckFound = false
 local gameId = game.PlaceId
 
--- UI SETUP
-local screenGui = Instance.new("ScreenGui", gui)
-screenGui.ResetOnSpawn = false
+-- CLEAN UI if re-executed
+if gui:FindFirstChild("LuckHopUI") then
+    gui.LuckHopUI:Destroy()
+end
+
+-- UI
+local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "LuckHopUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = gui
 
-local function createButton(name, positionY)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 250, 0, 40)
-    btn.Position = UDim2.new(0, 10, 0, positionY)
-    btn.BackgroundColor3 = Color3.new(0, 0, 0)
-    btn.BackgroundTransparency = 0.5
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.SciFi
-    btn.TextSize = 18
-    btn.TextWrapped = true
-    btn.AutoButtonColor = true
-    btn.BorderSizePixel = 0
+local function createStyledButton(name, text, posY, width, height)
+    local button = Instance.new("TextButton")
+    button.Name = name
+    button.Size = UDim2.new(0, width, 0, height)
+    button.Position = UDim2.new(0, 10, 0, posY)
+    button.BackgroundColor3 = Color3.new(0, 0, 0)
+    button.BackgroundTransparency = 0.5
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Font = Enum.Font.SciFi
+    button.TextSize = 20
+    button.Text = text
+    button.BorderSizePixel = 0
+    button.TextWrapped = true
 
-    -- Rounded corners
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = btn
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = button
 
-    -- Rainbow effect
     spawn(function()
         local h = 0
         while true do
-            btn.TextColor3 = Color3.fromHSV(h, 1, 1)
+            button.TextColor3 = Color3.fromHSV(h, 1, 1)
             h = (h + 0.01) % 1
             wait(0.03)
         end
     end)
 
-    btn.Parent = screenGui
-    return btn
+    button.Parent = screenGui
+    return button
 end
 
-local toggleButton = createButton("Toggle Luck Hop (ON)", 100)
-local statusButton = createButton("Status: Waiting...", 150)
-statusButton.Size = UDim2.new(0, 280, 0, 35)
+-- Create Toggle Button (Top)
+local toggleButton = createStyledButton("ToggleButton", "Luck Hopper: ON", 30, 250, 40)
 
--- TOGGLE FUNCTIONALITY
+-- Create Status Button (Below)
+local statusButton = createStyledButton("StatusButton", "Status: ⏳ Waiting...", 80, 300, 38)
+
+-- Toggle logic
 toggleButton.MouseButton1Click:Connect(function()
     hopping = not hopping
-    toggleButton.Text = hopping and "Toggle Luck Hop (ON)" or "Toggle Luck Hop (OFF)"
+    toggleButton.Text = hopping and "Luck Hopper: ON" or "Luck Hopper: OFF"
 end)
 
--- ANTI-AFK
+-- Anti-AFK
 pcall(function()
-    for _, conn in pairs(getconnections(player.Idled)) do
+    for _, conn in ipairs(getconnections(player.Idled)) do
         conn:Disable()
     end
 end)
 player.Idled:Connect(function()
-    VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    local vu = game:GetService("VirtualUser")
+    vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
     wait(1)
-    VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
 end)
 
--- SERVER SCRAPER (public servers)
+-- Server listing function
 local function getServers()
     local url = "https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100"
     local success, result = pcall(function()
         return HttpService:JSONDecode(game:HttpGet(url))
     end)
+    local list = {}
     if success and result and result.data then
-        local servers = {}
-        for _, server in pairs(result.data) do
-            if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                table.insert(servers, server.id)
+        for _, s in ipairs(result.data) do
+            if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                table.insert(list, s.id)
             end
         end
-        return servers
     end
-    return {}
+    return list
 end
 
--- MAIN LOOP
+-- Main hopping logic
 spawn(function()
-    wait(3) -- Let game fully load
+    wait(3)
     while true do
         if hopping and not luckFound then
-            -- 5-min Wait
             for i = waitBeforeCheck, 1, -1 do
-                statusButton.Text = string.format("⏳ Waiting... %ds", i)
+                statusButton.Text = string.format("Status: ⏳ Waiting... %ds", i)
                 wait(1)
             end
 
-            -- Luck Detection
-            local luckFrame = nil
+            -- Luck detection logic
+            local luckFrame
             pcall(function()
                 luckFrame = gui:FindFirstChild("Bottom_UI", true)
                     :FindFirstChild("BottomFrame", true)
