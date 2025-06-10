@@ -1,76 +1,67 @@
--- Services
-local Players = game:GetService("Players")
-local TeleportService = game:GetService("TeleportService")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local player = Players.LocalPlayer
-local placeId = game.PlaceId
+--// Settings
+local CHECK_INTERVAL = 5 -- seconds between checks
+local PLACE_ID = game.PlaceId
+local jobId = game.JobId
+local running = true -- Starts as ON
 
--- State
-local enabled = false
-local checking = false
+--// UI Setup
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "LuckboardFinderUI"
 
--- UI
-local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-screenGui.Name = "LuckboardToggleGui"
-screenGui.ResetOnSpawn = false
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Parent = ScreenGui
+ToggleButton.Size = UDim2.new(0, 200, 0, 50)
+ToggleButton.Position = UDim2.new(0, 20, 0, 100)
+ToggleButton.BackgroundColor3 = Color3.new(0, 0, 0)
+ToggleButton.BackgroundTransparency = 0.5
+ToggleButton.Text = "Luckboard Hopper: ON"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.SciFi
+ToggleButton.TextScaled = true
+ToggleButton.AutoButtonColor = true
+ToggleButton.BorderSizePixel = 0
+ToggleButton.TextStrokeTransparency = 0
 
-local toggle = Instance.new("TextButton")
-toggle.Name = "LuckToggle"
-toggle.Size = UDim2.new(0, 220, 0, 40)
-toggle.Position = UDim2.new(0, 20, 0, 100)
-toggle.BackgroundColor3 = Color3.new(0, 0, 0)
-toggle.BackgroundTransparency = 0.5
-toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggle.TextScaled = true
-toggle.Font = Enum.Font.SciFi
-toggle.Text = "Luckboard Finder: OFF"
-toggle.Parent = screenGui
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = toggle
-
--- Rainbow Text Function
-local function rainbowify(button)
-	local hue = 0
-	RunService.RenderStepped:Connect(function()
-		if button and button.Text then
-			hue = (hue + 1) % 360
-			local color = Color3.fromHSV(hue / 360, 1, 1)
-			button.TextColor3 = color
-		end
-	end)
-end
-
-rainbowify(toggle)
-
--- Rejoin Function
-local function checkLuckboardAndRejoin()
-	if checking then return end
-	checking = true
-	while enabled do
-		local found = workspace:FindFirstChild("MapDecorations") and workspace.MapDecorations:FindFirstChild("Luckboard")
-		if found then
-			toggle.Text = "Luckboard Found! ✅"
-			break
-		else
-			toggle.Text = "Luckboard Finder: Searching..."
-			task.wait(2)
-			TeleportService:Teleport(placeId, player)
-			break -- Break loop so it waits for teleport
+-- Rainbow Text
+spawn(function()
+	while true do
+		for hue = 0, 1, 0.01 do
+			ToggleButton.TextColor3 = Color3.fromHSV(hue, 1, 1)
+			wait(0.05)
 		end
 	end
-	checking = false
+end)
+
+--// Function to Check for Luckboard
+local function hasLuckboard()
+	local success, result = pcall(function()
+		return workspace:FindFirstChild("MapDecorations") and workspace.MapDecorations:FindFirstChild("Luckboard")
+	end)
+	return success and result ~= nil
 end
 
--- Toggle Control
-toggle.MouseButton1Click:Connect(function()
-	enabled = not enabled
-	if enabled then
-		toggle.Text = "Luckboard Finder: ON"
-		checkLuckboardAndRejoin()
-	else
-		toggle.Text = "Luckboard Finder: OFF"
+--// Hopper Logic
+local function startLoop()
+	while running do
+		if hasLuckboard() then
+			ToggleButton.Text = "Luckboard FOUND ✅"
+			break
+		else
+			wait(CHECK_INTERVAL)
+			game:GetService("TeleportService"):TeleportToPlaceInstance(PLACE_ID, jobId)
+		end
+	end
+end
+
+-- Start Immediately
+task.spawn(startLoop)
+
+-- Toggle Manual Control
+ToggleButton.MouseButton1Click:Connect(function()
+	running = not running
+	ToggleButton.Text = running and "Luckboard Hopper: ON" or "Luckboard Hopper: OFF"
+
+	if running then
+		task.spawn(startLoop)
 	end
 end)
