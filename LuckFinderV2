@@ -1,7 +1,6 @@
 --// Settings
 local CHECK_INTERVAL = 5 -- seconds between checks
 local PLACE_ID = game.PlaceId
-local jobId = game.JobId
 local running = true -- Starts as ON
 
 --// UI Setup
@@ -18,15 +17,13 @@ ToggleButton.Text = "Luckboard Hopper: ON"
 ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleButton.Font = Enum.Font.SciFi
 ToggleButton.TextScaled = true
-ToggleButton.AutoButtonColor = true
 ToggleButton.BorderSizePixel = 0
-ToggleButton.TextStrokeTransparency = 0
 
 -- Rainbow Text
-spawn(function()
+task.spawn(function()
 	while true do
-		for hue = 0, 1, 0.01 do
-			ToggleButton.TextColor3 = Color3.fromHSV(hue, 1, 1)
+		for h = 0, 1, 0.01 do
+			ToggleButton.TextColor3 = Color3.fromHSV(h, 1, 1)
 			wait(0.05)
 		end
 	end
@@ -40,7 +37,7 @@ local function hasLuckboard()
 	return success and result ~= nil
 end
 
---// Hopper Logic
+--// Hopper Logic (Private Server Compatible)
 local function startLoop()
 	while running do
 		if hasLuckboard() then
@@ -48,7 +45,7 @@ local function startLoop()
 			break
 		else
 			wait(CHECK_INTERVAL)
-			game:GetService("TeleportService"):TeleportToPlaceInstance(PLACE_ID, jobId)
+			game:GetService("TeleportService"):Teleport(PLACE_ID)
 		end
 	end
 end
@@ -60,7 +57,6 @@ task.spawn(startLoop)
 ToggleButton.MouseButton1Click:Connect(function()
 	running = not running
 	ToggleButton.Text = running and "Luckboard Hopper: ON" or "Luckboard Hopper: OFF"
-
 	if running then
 		task.spawn(startLoop)
 	end
