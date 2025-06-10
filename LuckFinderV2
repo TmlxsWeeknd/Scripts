@@ -1,59 +1,68 @@
---// Services
+--// LocalScript (for Executors like KRNL, Delta)
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
-local player = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
+local PlaceId = game.PlaceId
 
---// UI Setup
-local gui = Instance.new("ScreenGui")
-gui.Name = "LuckHopperUI"
-gui.IgnoreGuiInset = true
-gui.ResetOnSpawn = false
-pcall(function()
-    gui.Parent = game:GetService("CoreGui")
+-- UI Setup
+local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+local screenGui = Instance.new("ScreenGui", playerGui)
+screenGui.Name = "LuckboardFinderUI"
+screenGui.ResetOnSpawn = false
+
+-- UI Button
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 240, 0, 40)
+toggleButton.Position = UDim2.new(0, 10, 0, 100)
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+toggleButton.Text = "Luck Finder: ON"
+toggleButton.TextSize = 20
+toggleButton.Font = Enum.Font.SciFi
+toggleButton.TextColor3 = Color3.fromHSV(0, 1, 1)
+toggleButton.BorderSizePixel = 0
+toggleButton.AutoButtonColor = false
+toggleButton.Parent = screenGui
+
+-- Rounded Corners
+local corner = Instance.new("UICorner", toggleButton)
+corner.CornerRadius = UDim.new(0, 8)
+
+-- Rainbow Text
+spawn(function()
+	while true do
+		for hue = 0, 1, 0.01 do
+			toggleButton.TextColor3 = Color3.fromHSV(hue, 1, 1)
+			wait(0.05)
+		end
+	end
 end)
-if not gui.Parent then
-    gui.Parent = player:WaitForChild("PlayerGui")
-end
 
---// Toggle Button
-local toggle = Instance.new("TextButton")
-toggle.Parent = gui
-toggle.Size = UDim2.new(0, 200, 0, 50)
-toggle.Position = UDim2.new(0, 20, 0, 100)
-toggle.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggle.TextScaled = true
-toggle.Font = Enum.Font.SciFi
-toggle.Text = "Luck Hopper: ON"
-toggle.Draggable = true
-toggle.Active = true
-
---// State
+-- Toggle State
 local enabled = true
+toggleButton.Text = "Luck Finder: ON"
 
-toggle.MouseButton1Click:Connect(function()
+toggleButton.MouseButton1Click:Connect(function()
 	enabled = not enabled
-	toggle.Text = enabled and "Luck Hopper: ON" or "Luck Hopper: OFF"
+	toggleButton.Text = "Luck Finder: " .. (enabled and "ON" or "OFF")
 end)
 
---// Hopper Loop
-task.spawn(function()
+-- Main Loop
+spawn(function()
 	while true do
 		if enabled then
 			local decorations = workspace:FindFirstChild("MapDecorations")
-			local luckBoard = decorations and decorations:FindFirstChild("Luckboard")
-			
-			if luckBoard then
-				toggle.Text = "Luck Found ✅"
-				break
+			local luckboard = decorations and decorations:FindFirstChild("Luckboard")
+
+			if luckboard then
+				toggleButton.Text = "Luckboard Found ✅"
 			else
-				toggle.Text = "No Luck ❌ - Rejoining..."
-				task.wait(1)
-				pcall(function()
-					TeleportService:Teleport(game.PlaceId)
-				end)
+				toggleButton.Text = "Luckboard Not Found ❌ – Hopping in 5s..."
+				wait(5) -- cooldown BEFORE hopping
+				if enabled then -- check again in case disabled while waiting
+					TeleportService:Teleport(PlaceId)
+				end
 			end
 		end
-		task.wait(5)
+		wait(1) -- check every second if not hopping
 	end
 end)
