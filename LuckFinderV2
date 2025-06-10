@@ -1,18 +1,37 @@
---// LuckBoard Auto Rejoin Script with UI Toggle local Players = game:GetService("Players") local TeleportService = game:GetService("TeleportService") local LocalPlayer = Players.LocalPlayer local RunService = game:GetService("RunService") local CoreGui = game:GetService("CoreGui")
+-- Luckboard Auto Rejoin Script with Toggle UI (Delta Mobile Supported) -- Rejoins until Workspace.MapDecorations.Luckboard is found
 
--- UI Setup local ScreenGui = Instance.new("ScreenGui") ScreenGui.Name = "LuckBoardRejoinUI" ScreenGui.ResetOnSpawn = false ScreenGui.Parent = CoreGui
+-- Services local Players = game:GetService("Players") local TeleportService = game:GetService("TeleportService") local RunService = game:GetService("RunService")
 
-local ToggleButton = Instance.new("TextButton") ToggleButton.Size = UDim2.new(0, 200, 0, 50) ToggleButton.Position = UDim2.new(0, 20, 0, 100) ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0) ToggleButton.BackgroundTransparency = 0.5 ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255) ToggleButton.TextSize = 20 ToggleButton.Font = Enum.Font.SciFi ToggleButton.Text = "LuckBoard Hopper: ON" ToggleButton.BorderSizePixel = 0 ToggleButton.Parent = ScreenGui ToggleButton.AutoButtonColor = true
+-- Player local player = Players.LocalPlayer
 
--- Rainbow Text Effect spawn(function() while true do local t = tick() local r = math.abs(math.sin(t * 1.5)) local g = math.abs(math.sin(t * 1.5 + 2)) local b = math.abs(math.sin(t * 1.5 + 4)) ToggleButton.TextColor3 = Color3.new(r, g, b) RunService.RenderStepped:Wait() end end)
+-- Toggle Variables local searching = true local placeId = game.PlaceId
 
--- Rounded Corners local UICorner = Instance.new("UICorner") UICorner.CornerRadius = UDim.new(0, 10) UICorner.Parent = ToggleButton
+-- Rainbow Text Function local function updateRainbowText(textLabel) local counter = 0 RunService.RenderStepped:Connect(function() counter = counter + 0.01 local r = math.sin(counter) * 127 + 128 local g = math.sin(counter + 2) * 127 + 128 local b = math.sin(counter + 4) * 127 + 128 textLabel.TextColor3 = Color3.fromRGB(r, g, b) end) end
 
--- Rejoin Logic local enabled = true
+-- UI Setup local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui")) screenGui.ResetOnSpawn = false
 
-ToggleButton.MouseButton1Click:Connect(function() enabled = not enabled ToggleButton.Text = "LuckBoard Hopper: " .. (enabled and "ON" or "OFF") end)
+local toggleButton = Instance.new("TextButton") toggleButton.Size = UDim2.new(0, 200, 0, 50) toggleButton.Position = UDim2.new(0, 10, 0, 100) toggleButton.BackgroundTransparency = 0.5 toggleButton.BackgroundColor3 = Color3.new(0, 0, 0) toggleButton.Text = "Luckboard Hopper: ON" toggleButton.Font = Enum.Font.SciFi toggleButton.TextSize = 20 toggleButton.Parent = screenGui
 
-function checkForLuckBoard() local success, result = pcall(function() return workspace:FindFirstChild("MapDecorations") and workspace.MapDecorations:FindFirstChild("Luckboard") ~= nil end) return success and result end
+-- Apply Rounded Corners local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 10) corner.Parent = toggleButton
 
-spawn(function() wait(2) -- Initial delay while true do if enabled then if checkForLuckBoard() then ToggleButton.Text = "LuckBoard Hopper: FOUND ✅" break -- Stop if found else ToggleButton.Text = "LuckBoard Hopper: No Luckboard ❌" wait(5) TeleportService:Teleport(game.PlaceId, LocalPlayer) -- Try new server end else wait(1) end end end)
+updateRainbowText(toggleButton)
+
+-- Toggle Function local function toggle() searching = not searching toggleButton.Text = "Luckboard Hopper: " .. (searching and "ON" or "OFF") end
+
+toggleButton.MouseButton1Click:Connect(toggle)
+
+-- Search Loop spawn(function() while true do wait(5) if searching then local success, exists = pcall(function() return game.Workspace:FindFirstChild("MapDecorations") and game.Workspace.MapDecorations:FindFirstChild("Luckboard") end)
+
+if exists then
+            print("Luckboard found! Stopping rejoin.")
+            toggleButton.Text = "Luckboard Hopper: Found ✅"
+            searching = false
+        else
+            print("Luckboard not found. Rejoining...")
+            TeleportService:Teleport(placeId, player)
+        end
+    end
+end
+
+end)
 
