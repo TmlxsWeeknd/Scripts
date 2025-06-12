@@ -1,0 +1,164 @@
+-- Services
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local PlaceId = game.PlaceId
+
+-- Invite link
+local inviteLink = "https://discord.gg/KJ7drjNp6s"
+
+-- Main ScreenGui
+local mainGui = Instance.new("ScreenGui", PlayerGui)
+mainGui.Name = "LuckboardFinderUI"
+mainGui.ResetOnSpawn = false
+
+-- Discord Popup Frame
+local popup = Instance.new("Frame", mainGui)
+popup.Size = UDim2.new(0, 320, 0, 150)
+popup.Position = UDim2.new(0.5, -160, 0.5, -75)
+popup.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+popup.BorderSizePixel = 0
+popup.BackgroundTransparency = 1
+Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 10)
+
+-- Fade in popup
+TweenService:Create(popup, TweenInfo.new(0.5), {
+	BackgroundTransparency = 0
+}):Play()
+
+-- Label
+local label = Instance.new("TextLabel", popup)
+label.Size = UDim2.new(1, -20, 0, 50)
+label.Position = UDim2.new(0, 10, 0, 10)
+label.BackgroundTransparency = 1
+label.Text = "Join our Discord server for updates!"
+label.TextColor3 = Color3.new(1, 1, 1)
+label.TextSize = 18
+label.Font = Enum.Font.SciFi
+label.TextStrokeTransparency = 0.7
+label.TextStrokeColor3 = Color3.new(1, 1, 1)
+label.TextTransparency = 1
+
+TweenService:Create(label, TweenInfo.new(0.5), {
+	TextTransparency = 0
+}):Play()
+
+-- Copy Button
+local copyButton = Instance.new("TextButton", popup)
+copyButton.Size = UDim2.new(0.5, -15, 0, 40)
+copyButton.Position = UDim2.new(0, 10, 1, -50)
+copyButton.Text = "Copy Link"
+copyButton.TextSize = 16
+copyButton.Font = Enum.Font.SciFi
+copyButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+copyButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+copyButton.TextStrokeTransparency = 0.3
+copyButton.TextStrokeColor3 = Color3.fromRGB(57, 255, 20)
+copyButton.BackgroundTransparency = 1
+copyButton.TextTransparency = 1
+Instance.new("UICorner", copyButton).CornerRadius = UDim.new(0, 6)
+
+-- Cancel Button
+local cancelButton = Instance.new("TextButton", popup)
+cancelButton.Size = UDim2.new(0.5, -15, 0, 40)
+cancelButton.Position = UDim2.new(0.5, 5, 1, -50)
+cancelButton.Text = "No Thanks"
+cancelButton.TextSize = 16
+cancelButton.Font = Enum.Font.SciFi
+cancelButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+cancelButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+cancelButton.TextStrokeTransparency = 0.3
+cancelButton.TextStrokeColor3 = Color3.fromRGB(255, 80, 80)
+cancelButton.BackgroundTransparency = 1
+cancelButton.TextTransparency = 1
+Instance.new("UICorner", cancelButton).CornerRadius = UDim.new(0, 6)
+
+-- Fade in buttons
+TweenService:Create(copyButton, TweenInfo.new(0.5), {
+	BackgroundTransparency = 0,
+	TextTransparency = 0
+}):Play()
+
+TweenService:Create(cancelButton, TweenInfo.new(0.5), {
+	BackgroundTransparency = 0,
+	TextTransparency = 0
+}):Play()
+
+-- Close Function
+local function closePopup()
+	local tweens = {
+		TweenService:Create(popup, TweenInfo.new(0.4), {BackgroundTransparency = 1}),
+		TweenService:Create(label, TweenInfo.new(0.4), {TextTransparency = 1}),
+		TweenService:Create(copyButton, TweenInfo.new(0.4), {TextTransparency = 1, BackgroundTransparency = 1}),
+		TweenService:Create(cancelButton, TweenInfo.new(0.4), {TextTransparency = 1, BackgroundTransparency = 1})
+	}
+	for _, t in ipairs(tweens) do t:Play() end
+	wait(0.4)
+	popup:Destroy()
+end
+
+copyButton.MouseButton1Click:Connect(function()
+	setclipboard(inviteLink)
+	label.Text = "Link copied! Thanks!"
+	wait(1.2)
+	closePopup()
+end)
+
+cancelButton.MouseButton1Click:Connect(closePopup)
+
+-- START Luck Finder UI Immediately
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 240, 0, 40)
+toggleButton.Position = UDim2.new(0, 10, 0, 100)
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+toggleButton.Text = "Luck Finder: ON"
+toggleButton.TextSize = 20
+toggleButton.Font = Enum.Font.SciFi
+toggleButton.TextColor3 = Color3.fromHSV(0, 1, 1)
+toggleButton.BorderSizePixel = 0
+toggleButton.AutoButtonColor = false
+toggleButton.Parent = mainGui
+
+local corner = Instance.new("UICorner", toggleButton)
+corner.CornerRadius = UDim.new(0, 8)
+
+-- Rainbow text effect
+task.spawn(function()
+	while true do
+		for hue = 0, 1, 0.01 do
+			toggleButton.TextColor3 = Color3.fromHSV(hue, 1, 1)
+			task.wait(0.05)
+		end
+	end
+end)
+
+local enabled = true
+toggleButton.Text = "Luck Finder: ON"
+
+toggleButton.MouseButton1Click:Connect(function()
+	enabled = not enabled
+	toggleButton.Text = "Luck Finder: " .. (enabled and "ON" or "OFF")
+end)
+
+-- Main check loop
+task.spawn(function()
+	while true do
+		if enabled then
+			local decorations = workspace:FindFirstChild("MapDecorations")
+			local luckboard = decorations and decorations:FindFirstChild("Luckboard")
+
+			if luckboard then
+				toggleButton.Text = "Luckboard Found ✅"
+			else
+				toggleButton.Text = "Luckboard Not Found ❌ – Hopping in 5s..."
+				task.wait(5)
+				if enabled then
+					TeleportService:Teleport(PlaceId)
+				end
+			end
+		end
+		task.wait(1)
+	end
+end)
