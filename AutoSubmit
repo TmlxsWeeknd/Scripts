@@ -1,0 +1,69 @@
+-- Services
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- UI Setup
+local gui = Instance.new("ScreenGui")
+gui.Name = "SubmitFruitsUI"
+gui.ResetOnSpawn = false
+gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 160, 0, 40)
+button.Position = UDim2.new(0.5, -80, 0, -35) -- center top with -35 offset
+button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+button.BackgroundTransparency = 0.5
+button.Font = Enum.Font.SciFi
+button.TextColor3 = Color3.fromRGB(255, 120, 0) -- Orange
+button.TextSize = 18
+button.Text = "Submit All Fruits"
+button.AutoButtonColor = false
+button.Parent = gui
+
+-- Rounded corners
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = button
+
+-- Outline
+local outline = Instance.new("UIStroke")
+outline.Color = Color3.new(0, 0, 0)
+outline.Thickness = 1
+outline.Parent = button
+
+-- Target keywords
+local validKeywords = {
+    "Cauliflower",
+    "Green Apple",
+    "Avocado",
+    "Banana",
+    "Pineapple",
+    "Kiwi",
+    "Bell Pepper",
+    "Prickly Pear",
+    "Loquat",
+    "Feijoa"
+}
+
+-- Button Function
+button.MouseButton1Click:Connect(function()
+    local backpack = LocalPlayer:WaitForChild("Backpack")
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+    -- Equip only matching fruit tools
+    for _, tool in ipairs(backpack:GetChildren()) do
+        if tool:IsA("Tool") then
+            for _, keyword in ipairs(validKeywords) do
+                if string.find(tool.Name, keyword, 1, true) then
+                    tool.Parent = character
+                    break
+                end
+            end
+        end
+    end
+
+    -- Fire the remote event
+    local remote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("SummerHarvestRemoteEvent")
+    remote:FireServer("SubmitHeldPlant")
+end)
