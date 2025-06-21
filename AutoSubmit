@@ -1,43 +1,36 @@
 -- Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- GUI Setup
-local ui = Instance.new("ScreenGui")
-ui.Name = "FruitSubmitUI"
-ui.ResetOnSpawn = false
-ui.Parent = PlayerGui
+-- UI Setup
+local submitGui = Instance.new("ScreenGui")
+submitGui.Name = "SubmitAllFruitsUI"
+submitGui.ResetOnSpawn = false
+submitGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- Submit Button
-local submitFruitsButton = Instance.new("TextButton")
-submitFruitsButton.Size = UDim2.new(0, 160, 0, 40)
-submitFruitsButton.Position = UDim2.new(0.5, -80, 0, -35)
-submitFruitsButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-submitFruitsButton.BackgroundTransparency = 0.5
-submitFruitsButton.BorderColor3 = Color3.new(0, 0, 0)
-submitFruitsButton.BorderMode = Enum.BorderMode.Outline
-submitFruitsButton.AutoButtonColor = false
-submitFruitsButton.Font = Enum.Font.SciFi
-submitFruitsButton.TextSize = 18
-submitFruitsButton.Text = "Submit All Fruits"
-submitFruitsButton.TextColor3 = Color3.fromRGB(255, 165, 0)
-submitFruitsButton.Parent = ui
+local submitButton = Instance.new("TextButton")
+submitButton.Size = UDim2.new(0, 160, 0, 40)
+submitButton.Position = UDim2.new(0.5, 0, 0, -45) -- Correct center top
+submitButton.AnchorPoint = Vector2.new(0.5, 0)
+submitButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+submitButton.BackgroundTransparency = 0.5
+submitButton.BorderColor3 = Color3.new(0, 0, 0)
+submitButton.BorderMode = Enum.BorderMode.Outline
+submitButton.AutoButtonColor = false
+submitButton.Font = Enum.Font.SciFi
+submitButton.TextSize = 18
+submitButton.Text = "Submit All Fruits"
+submitButton.TextColor3 = Color3.fromRGB(255, 165, 0)
 
--- UI Styling
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = submitFruitsButton
+corner.Parent = submitButton
 
-local outline = Instance.new("UIStroke")
-outline.Color = Color3.new(0, 0, 0)
-outline.Thickness = 1
-outline.Parent = submitFruitsButton
+submitButton.Parent = submitGui
 
--- Logic
-local validFruits = {
+-- Fruits to detect
+local targetFruits = {
 	"Cauliflower",
 	"Green Apple",
 	"Avocado",
@@ -50,29 +43,35 @@ local validFruits = {
 	"Feijoa"
 }
 
-submitFruitsButton.MouseButton1Click:Connect(function()
-	local Backpack = LocalPlayer:WaitForChild("Backpack")
-	local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-	local remote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("SummerHarvestRemoteEvent")
+-- Helper to check if name contains exact fruit name
+local function isTargetFruit(itemName)
+	for _, fruit in ipairs(targetFruits) do
+		if string.find(itemName, fruit, 1, true) then
+			return true
+		end
+	end
+	return false
+end
 
-	-- Move valid fruits to character
-	for _, tool in ipairs(Backpack:GetChildren()) do
-		if tool:IsA("Tool") then
-			for _, fruit in ipairs(validFruits) do
-				if string.sub(tool.Name, 1, #fruit) == fruit then
-					tool.Parent = Character
-					break
-				end
-			end
+-- Button logic
+submitButton.MouseButton1Click:Connect(function()
+	local backpack = LocalPlayer:WaitForChild("Backpack")
+
+	for _, item in ipairs(backpack:GetChildren()) do
+		if item:IsA("Tool") and isTargetFruit(item.Name) then
+			item.Parent = LocalPlayer.Character
 		end
 	end
 
-	-- Call remote for 10 seconds
-	local start = tick()
-	while tick() - start < 10 do
-		pcall(function()
-			remote:FireServer("SubmitHeldPlant")
-		end)
-		wait(0.1)
-	end
+	spawn(function()
+		local startTime = tick()
+		while tick() - startTime < 30 do
+			local args = { "SubmitHeldPlant" }
+			local remote = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("SummerHarvestRemoteEvent")
+			if typeof(remote) == "Instance" and remote:IsA("RemoteEvent") then
+				remote:FireServer(unpack(args))
+			end
+			wait(0.1)
+		end
+	end)
 end)
