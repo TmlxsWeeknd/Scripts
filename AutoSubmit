@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
--- Fruit list to submit (CAPS SENSITIVE)
+-- Fruit list (CAPS SENSITIVE, no seeds or Blood Kiwi)
 local validFruits = {
     "Cauliflower",
     "Green Apple",
@@ -39,7 +39,7 @@ submitButton.BorderMode = Enum.BorderMode.Outline
 submitButton.AutoButtonColor = false
 submitButton.Font = Enum.Font.SciFi
 submitButton.TextSize = 18
-submitButton.Text = "Submit All Fruits"
+submitButton.Text = "Submit All: OFF"
 submitButton.TextColor3 = Color3.fromRGB(255, 136, 0)
 
 -- Styling
@@ -59,7 +59,7 @@ textStroke.Parent = submitButton
 
 submitButton.Parent = ui
 
--- Function to check if a name matches valid fruits
+-- Fruit check
 local function isValidFruit(name)
 	for _, fruit in ipairs(validFruits) do
 		if string.find(name, fruit) and not string.find(name, "Seed") and not string.find(name, "Blood Kiwi") then
@@ -69,25 +69,34 @@ local function isValidFruit(name)
 	return false
 end
 
--- Button logic
+-- Toggle behavior
+local isToggled = false
+local keepRunning = false
+
 submitButton.MouseButton1Click:Connect(function()
-	local backpack = LocalPlayer:WaitForChild("Backpack")
-	local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	isToggled = not isToggled
+	submitButton.Text = isToggled and "Submit All: ON" or "Submit All: OFF"
+	keepRunning = isToggled
 
-	-- Hold all valid fruits instantly
-	for _, item in ipairs(backpack:GetChildren()) do
-		if item:IsA("Tool") and isValidFruit(item.Name) then
-			item.Parent = character
-		end
+	if isToggled then
+		task.spawn(function()
+			while keepRunning do
+				local backpack = LocalPlayer:WaitForChild("Backpack")
+				local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+				-- Equip valid fruits
+				for _, item in ipairs(backpack:GetChildren()) do
+					if item:IsA("Tool") and isValidFruit(item.Name) then
+						item.Parent = character
+					end
+				end
+
+				-- Submit
+				local args = { "SubmitHeldPlant" }
+				ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("SummerHarvestRemoteEvent"):FireServer(unpack(args))
+
+				task.wait(0.1)
+			end
+		end)
 	end
-
-	-- Run submission for 30 seconds
-	task.spawn(function()
-		local t0 = tick()
-		while tick() - t0 < 30 do
-			local args = { "SubmitHeldPlant" }
-			ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("SummerHarvestRemoteEvent"):FireServer(unpack(args))
-			task.wait(0.1)
-		end
-	end)
 end)
