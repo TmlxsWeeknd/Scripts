@@ -1,8 +1,28 @@
--- UI Setup
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
+-- Fruit list to submit (CAPS SENSITIVE)
+local validFruits = {
+    "Cauliflower",
+    "Green Apple",
+    "Avocado",
+    "Banana",
+    "Pineapple",
+    "Kiwi",
+    "Bell Pepper",
+    "Prickly Pear",
+    "Loquat",
+    "Feijoa",
+    "Sugar Apple",
+    "Carrot",
+    "Blueberry",
+    "Strawberry",
+    "Tomato",
+    "Watermelon"
+}
+
+-- UI Setup
 local ui = Instance.new("ScreenGui")
 ui.Name = "SubmitAllFruitUI"
 ui.ResetOnSpawn = false
@@ -11,7 +31,8 @@ ui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 local submitButton = Instance.new("TextButton")
 submitButton.Size = UDim2.new(0, 160, 0, 40)
 submitButton.Position = UDim2.new(0.5, -80, 0, -45)
-submitButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+submitButton.AnchorPoint = Vector2.new(0, 0)
+submitButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 submitButton.BackgroundTransparency = 0.5
 submitButton.BorderColor3 = Color3.new(0, 0, 0)
 submitButton.BorderMode = Enum.BorderMode.Outline
@@ -19,8 +40,9 @@ submitButton.AutoButtonColor = false
 submitButton.Font = Enum.Font.SciFi
 submitButton.TextSize = 18
 submitButton.Text = "Submit All Fruits"
-submitButton.TextColor3 = Color3.new(1, 0.5, 0)
+submitButton.TextColor3 = Color3.fromRGB(255, 136, 0)
 
+-- Styling
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 8)
 corner.Parent = submitButton
@@ -30,29 +52,17 @@ outline.Color = Color3.new(0, 0, 0)
 outline.Thickness = 1
 outline.Parent = submitButton
 
+local textStroke = Instance.new("UIStroke")
+textStroke.Color = Color3.new(0, 0, 0)
+textStroke.Thickness = 1
+textStroke.Parent = submitButton
+
 submitButton.Parent = ui
 
--- Fruit list (case-sensitive, exact substrings)
-local fruitList = {
-	"Cauliflower",
-	"Green Apple",
-	"Avocado",
-	"Banana",
-	"Pineapple",
-	"Kiwi",
-	"Bell Pepper",
-	"Prickly Pear",
-	"Loquat",
-	"Feijoa",
-	"Sugar Apple"
-}
-
-local function isFruit(item)
-	if not item:IsA("Tool") then return false end
-	if string.find(item.Name, "Seed", 1, true) then return false end
-	if string.find(item.Name, "Blood Kiwi", 1, true) then return false end
-	for _, fruitName in ipairs(fruitList) do
-		if string.find(item.Name, fruitName, 1, true) then
+-- Function to check if a name matches valid fruits
+local function isValidFruit(name)
+	for _, fruit in ipairs(validFruits) do
+		if string.find(name, fruit) and not string.find(name, "Seed") and not string.find(name, "Blood Kiwi") then
 			return true
 		end
 	end
@@ -64,22 +74,20 @@ submitButton.MouseButton1Click:Connect(function()
 	local backpack = LocalPlayer:WaitForChild("Backpack")
 	local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
-	-- Move valid fruits to character
+	-- Hold all valid fruits instantly
 	for _, item in ipairs(backpack:GetChildren()) do
-		if isFruit(item) then
+		if item:IsA("Tool") and isValidFruit(item.Name) then
 			item.Parent = character
 		end
 	end
 
-	-- Submit for 30 seconds
+	-- Run submission for 30 seconds
 	task.spawn(function()
-		local start = tick()
-		while tick() - start < 30 do
-			local args = {
-				"SubmitHeldPlant"
-			}
+		local t0 = tick()
+		while tick() - t0 < 30 do
+			local args = { "SubmitHeldPlant" }
 			ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("SummerHarvestRemoteEvent"):FireServer(unpack(args))
-			wait(0.1)
+			task.wait(0.1)
 		end
 	end)
 end)
