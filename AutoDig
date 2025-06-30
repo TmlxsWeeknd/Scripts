@@ -1,0 +1,167 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local player = Players.LocalPlayer
+
+-- UI Setup
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "AutoDigUI"
+screenGui.ResetOnSpawn = false
+
+-- Container
+local container = Instance.new("Frame")
+container.Size = UDim2.new(0, 200, 0, 120)
+container.Position = UDim2.new(0.5, -100, 0.02, 0)
+container.BackgroundTransparency = 1
+container.Parent = screenGui
+
+local layout = Instance.new("UIListLayout", container)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Padding = UDim.new(0, 12)
+
+-- Button Maker
+local function makeButton(name, text)
+	local btn = Instance.new("TextButton")
+	btn.Name = name
+	btn.Size = UDim2.new(1, 0, 0, 40)
+	btn.BackgroundColor3 = Color3.new(0, 0, 0)
+	btn.BackgroundTransparency = 0.5
+	btn.Text = text
+	btn.TextColor3 = Color3.fromRGB(255, 130, 0)
+	btn.Font = Enum.Font.SciFi
+	btn.TextSize = 20
+
+	local corner = Instance.new("UICorner", btn)
+	corner.CornerRadius = UDim.new(0, 10)
+
+	btn.Parent = container
+	return btn
+end
+
+local hideButton = makeButton("HideButton", "Hide UI")
+
+-- Row for Auto Dig + Boss Fight
+local rowFrame = Instance.new("Frame")
+rowFrame.Size = UDim2.new(1, 0, 0, 40)
+rowFrame.BackgroundTransparency = 1
+rowFrame.Parent = container
+
+local autoButton = makeButton("AutoDigToggle", "Auto Dig: OFF")
+autoButton.Size = UDim2.new(0.5, -3, 1, 0)
+autoButton.Position = UDim2.new(0, 0, 0, 0)
+autoButton.Parent = rowFrame
+
+local bossButton = makeButton("BossToggle", "Boss Fight: OFF")
+bossButton.Size = UDim2.new(0.5, -3, 1, 0)
+bossButton.Position = UDim2.new(0.5, 6, 0, 0)
+bossButton.Parent = rowFrame
+
+-- States
+local autoDig = false
+local bossFight = false
+
+-- Functions
+local function clickScreen()
+	pcall(function()
+		local x = workspace.CurrentCamera.ViewportSize.X / 2
+		local y = workspace.CurrentCamera.ViewportSize.Y / 2
+		VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+		VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+	end)
+end
+
+local function digSequence()
+	clickScreen()
+	task.wait(0.1)
+
+	local t = tick()
+	while tick() - t < 0.5 do
+		local args = {
+			"Progress",
+			{
+				player.Character,
+				9.088,
+				"Strong",
+				{
+					Rarity = "Scarce",
+					Rock = 1
+				}
+			}
+		}
+		ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Dig_Replicate"):FireServer(unpack(args))
+		task.wait(0.05)
+	end
+
+	task.wait(1.5)
+
+	local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then return end
+
+	local args = {
+		0,
+		{
+			{
+				Orientation = Vector3.zero,
+				Transparency = 1,
+				Name = "PositionPart",
+				Position = rootPart.Position,
+				Color = Color3.new(0.6392, 0.6353, 0.6471),
+				Material = Enum.Material.Plastic,
+				Shape = Enum.PartType.Block,
+				Size = Vector3.new(0.1, 0.1, 0.1)
+			}
+		}
+	}
+	ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Dig_Finished"):FireServer(unpack(args))
+end
+
+local function digBoss()
+	while autoDig and bossFight do
+		local args = { true }
+		ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Dig_Boss_OnHit"):FireServer(unpack(args))
+		task.wait(0.025)
+	end
+end
+
+-- Toggles
+autoButton.MouseButton1Click:Connect(function()
+	autoDig = not autoDig
+	autoButton.Text = "Auto Dig: " .. (autoDig and "ON" or "OFF")
+
+	if not autoDig then
+		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid:UnequipTools()
+		end
+	end
+
+	if autoDig then
+		task.spawn(function()
+			while autoDig do
+				if bossFight then
+					digBoss()
+				else
+					local cycleStart = tick()
+					digSequence()
+					local elapsed = tick() - cycleStart
+					local remaining = 2.0 - elapsed
+					if remaining > 0 then
+						task.wait(remaining)
+					end
+				end
+			end
+		end)
+	end
+end)
+
+bossButton.MouseButton1Click:Connect(function()
+	bossFight = not bossFight
+	bossButton.Text = "Boss Fight: " .. (bossFight and "ON" or "OFF")
+end)
+
+hideButton.MouseButton1Click:Connect(function()
+	local toggle = not autoButton.Visible
+	autoButton.Visible = toggle
+	bossButton.Visible = toggle
+	hideButton.Text = toggle and "Hide UI" or "Show UI"
+end)
