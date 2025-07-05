@@ -1,0 +1,29 @@
+local a=game:GetService("Players")
+local b=game:GetService("ReplicatedStorage")
+local c=game:GetService("UserInputService")
+local d=game:GetService("RunService")
+local e=game:GetService("Workspace")
+local f=a.LocalPlayer
+local g=e.CurrentCamera
+local h=f:WaitForChild("Backpack")
+local i=f.PlayerGui:WaitForChild("ConfirmSprinkler")
+local j=i:FindFirstChild("PlacingLabel",true)
+local k=i:FindFirstChild("Confirm",true)
+local l=i:FindFirstChild("Cancel",true)
+i.Enabled=false
+local m;for n,o in ipairs(h:GetChildren()) do if o:IsA("Tool") and o.Name:find("Honey Sprinkler") then m=o break end end
+if not m then warn("❌ No Honey Sprinkler tool found.") return end
+local p=m:Clone()p.Name="Honey Sprinkler x∞"p.Parent=h
+local q=b:WaitForChild("ObjectModels"):WaitForChild("Honey Sprinkler")
+if not q.PrimaryPart then for n,o in ipairs(q:GetDescendants()) do if o:IsA("BasePart") then q.PrimaryPart=o break end end end
+local r=false
+local s=nil
+local t=false
+local function u(v)local w=g.CFrame.Position local x=g:ScreenPointToRay(v.X,v.Y).Direction*500 local y=RaycastParams.new() y.FilterDescendantsInstances={f.Character} y.FilterType=Enum.RaycastFilterType.Blacklist y.IgnoreWater=true local z=e:Raycast(w,x,y) return z and z.Position or nil end
+local function A()task.delay(0.1,function()t=false end)end
+p.Equipped:Connect(function()t=false r=true s=nil i.Enabled=false j.Text="Place Honey Sprinkler x∞?"end)
+p.Unequipped:Connect(function()r=false s=nil i.Enabled=false t=false end)
+c.InputBegan:Connect(function(B,C)if r and not C and not i.Enabled and not t then if B.UserInputType==Enum.UserInputType.MouseButton1 then local D=B.Position or c:GetMouseLocation() local E=u(D) if E then s=E+Vector3.new(0,0.5,0) i.Enabled=true t=true else A()end end end end)
+c.TouchTap:Connect(function(F,G)if r and not G and not i.Enabled and not t then local D=F[1] if D then local E=u(D) if E then s=E+Vector3.new(0,0.5,0) i.Enabled=true t=true else A()end end end end)
+k.MouseButton1Click:Connect(function()if s then i.Enabled=false local H=q:Clone() if not H.PrimaryPart then for n,o in ipairs(H:GetDescendants()) do if o:IsA("BasePart") then H.PrimaryPart=o break end end end H.Parent=e local I=CFrame.new(s)*CFrame.Angles(math.rad(180),0,0) H:SetPrimaryPartCFrame(I) local J=b.Modules.EffectController.Effects.Gear.SprinklerHandler.PlaceEffect local K=J:Clone() K.CFrame=H.PrimaryPart.CFrame*CFrame.new(0,0.5,0) K.Parent=e local L=K:FindFirstChild("Attachment",true) if L then local M=L:FindFirstChild("Smoke") if M then M.Enabled=true task.delay(0.3,function()if M then M.Enabled=false end end) end end task.delay(2,function()if K then K:Destroy()end end) local N=b.Modules.EffectController.Effects.Gear.SprinklerHandler.PlaceSFX local O=N:Clone() O.Parent=H.PrimaryPart O:Play() task.delay(3,function()if O then O:Destroy()end end) local P=b.Modules.EffectController.Effects.Gear.SprinklerHandler["Honey Sprinkler VFX"] local Q=P:Clone() Q.Parent=H if Q:IsA("Model") and Q.PrimaryPart then Q:SetPrimaryPartCFrame(H.PrimaryPart.CFrame) elseif Q:IsA("BasePart") then Q.Position=H.PrimaryPart.Position end local R=b.Modules.EffectController.Effects.Gear.SprinklerHandler.SprinklerLoop local S=R:Clone() S.Looped=true S.Playing=true S.Parent=H.PrimaryPart s=nil end A()end)
+l.MouseButton1Click:Connect(function()i.Enabled=false s=nil A()end)
