@@ -1,0 +1,185 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+local backpack = player:WaitForChild("Backpack")
+local gui = player.PlayerGui:WaitForChild("ConfirmSprinkler")
+local placingLabel = gui:FindFirstChild("PlacingLabel", true)
+local confirmBtn = gui:FindFirstChild("Confirm", true)
+local cancelBtn = gui:FindFirstChild("Cancel", true)
+gui.Enabled = false
+
+-- 🔧 STEP 1: Ensure Model Exists in ReplicatedStorage.ObjectModels
+local modelName = "Sweet Sugar Sprinkler"
+local objectModels = ReplicatedStorage:WaitForChild("ObjectModels")
+
+if not objectModels:FindFirstChild(modelName) then
+	local workspaceModel = Workspace:FindFirstChild(modelName)
+	if workspaceModel then
+		local clone = workspaceModel:Clone()
+		clone.Name = modelName
+		clone.Parent = objectModels
+		print("✅ Registered Sweet Sugar Sprinkler in ObjectModels.")
+	else
+		warn("❌ Sweet Sugar Sprinkler model not found in Workspace for registration.")
+	end
+end
+
+-- STEP 2: Equip Tool Clone
+local tool
+for _, t in ipairs(backpack:GetChildren()) do
+	if t:IsA("Tool") and t.Name:find("Honey Sprinkler") then
+		tool = t
+		break
+	end
+end
+
+if not tool then
+	warn("❌ No base Honey Sprinkler tool found.")
+	return
+end
+
+local infinite = tool:Clone()
+infinite.Name = "Sweet Sugar Sprinkler x∞"
+infinite.Parent = backpack
+
+-- STEP 3: Get Sweet Sugar Sprinkler model
+local modelTemplate = objectModels:WaitForChild(modelName)
+if not modelTemplate.PrimaryPart then
+	for _, part in ipairs(modelTemplate:GetDescendants()) do
+		if part:IsA("BasePart") then
+			modelTemplate.PrimaryPart = part
+			break
+		end
+	end
+end
+
+-- STEP 4: Placement Logic
+local isEquipped = false
+local placementPos = nil
+local debounce = false
+
+local function getPlacement(pos)
+	local origin = camera.CFrame.Position
+	local dir = camera:ScreenPointToRay(pos.X, pos.Y).Direction * 500
+	local rayParams = RaycastParams.new()
+	rayParams.FilterDescendantsInstances = {player.Character}
+	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+	rayParams.IgnoreWater = true
+	local result = Workspace:Raycast(origin, dir, rayParams)
+	return result and result.Position or nil
+end
+
+local function unlock()
+	task.delay(0.1, function()
+		debounce = false
+	end)
+end
+
+infinite.Equipped:Connect(function()
+	debounce = false
+	isEquipped = true
+	placementPos = nil
+	gui.Enabled = false
+	placingLabel.Text = "Place Sweet Sugar Sprinkler?"
+end)
+
+infinite.Unequipped:Connect(function()
+	isEquipped = false
+	placementPos = nil
+	gui.Enabled = false
+	debounce = false
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if isEquipped and not gameProcessed and not gui.Enabled and not debounce then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			local pos = input.Position or UserInputService:GetMouseLocation()
+			local worldPos = getPlacement(pos)
+			if worldPos then
+				placementPos = worldPos + Vector3.new(0, 0.5, 0)
+				gui.Enabled = true
+				debounce = true
+			else
+				unlock()
+			end
+		end
+	end
+end)
+
+UserInputService.TouchTap:Connect(function(touchPositions, processed)
+	if isEquipped and not processed and not gui.Enabled and not debounce then
+		local pos = touchPositions[1]
+		if pos then
+			local worldPos = getPlacement(pos)
+			if worldPos then
+				placementPos = worldPos + Vector3.new(0, 0.5, 0)
+				gui.Enabled = true
+				debounce = true
+			else
+				unlock()
+			end
+		end
+	end
+end)
+
+-- STEP 5: Confirm Placement
+confirmBtn.MouseButton1Click:Connect(function()
+	if placementPos then
+		gui.Enabled = false
+
+		local newSprinkler = modelTemplate:Clone()
+		if not newSprinkler.PrimaryPart then
+			for _, part in ipairs(newSprinkler:GetDescendants()) do
+				if part:IsA("BasePart") then
+					newSprinkler.PrimaryPart = part
+					break
+				end
+			end
+		end
+
+		newSprinkler.Parent = Workspace
+		newSprinkler:SetPrimaryPartCFrame(CFrame.new(placementPos) * CFrame.Angles(math.rad(180), 0, 0))
+
+		local placeEffect = ReplicatedStorage.Modules.EffectController.Effects.Gear.SprinklerHandler.PlaceEffect:Clone()
+		placeEffect.CFrame = newSprinkler.PrimaryPart.CFrame * CFrame.new(0, 0.5, 0)
+		placeEffect.Parent = Workspace
+
+		local attachment = placeEffect:FindFirstChild("Attachment", true)
+		local smoke = attachment and attachment:FindFirstChild("Smoke")
+		if smoke then
+			smoke.Enabled = true
+			task.delay(0.3, function()
+				if smoke then smoke.Enabled = false end
+			end)
+		end
+		task.delay(2, function()
+			if placeEffect then placeEffect:Destroy() end
+		end)
+
+		local sound = ReplicatedStorage.Modules.EffectController.Effects.Gear.SprinklerHandler.PlaceSFX:Clone()
+		sound.Parent = newSprinkler.PrimaryPart
+		sound:Play()
+		task.delay(3, function()
+			if sound then sound:Destroy() end
+		end)
+
+		local loop = ReplicatedStorage.Modules.EffectController.Effects.Gear.SprinklerHandler.SprinklerLoop:Clone()
+		loop.Looped = true
+		loop.Playing = true
+		loop.Parent = newSprinkler.PrimaryPart
+
+		placementPos = nil
+	end
+	unlock()
+end)
+
+cancelBtn.MouseButton1Click:Connect(function()
+	gui.Enabled = false
+	placementPos = nil
+	unlock()
+end)
