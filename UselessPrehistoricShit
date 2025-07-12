@@ -1,0 +1,46 @@
+--// Move three assets into workspace.NewDinosRigged
+--// …and clean up two obsolete objects.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace        = game:GetService("Workspace")
+
+------------------------------------------------------------------------
+-- 1. Get destination (waits so it never errors on startup)
+------------------------------------------------------------------------
+local target = Workspace:WaitForChild("NewDinosRigged")
+
+------------------------------------------------------------------------
+-- 2. Gather the source instances to MOVE
+------------------------------------------------------------------------
+local updateService      = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("UpdateService")
+local dinoMachineHandler = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("DinoMachineHandler")
+
+local toMove = {
+	updateService:WaitForChild("NewPetStand"),
+	updateService:WaitForChild("UpgradePlatform"),
+	dinoMachineHandler:WaitForChild("DnaMachineLvl5"),
+}
+
+------------------------------------------------------------------------
+-- 3. Re-parent them to workspace.NewDinosRigged
+------------------------------------------------------------------------
+for _, inst in ipairs(toMove) do
+	inst.Parent = target
+end
+
+------------------------------------------------------------------------
+-- 4. Gather the objects to DELETE (safely—only if they exist)
+------------------------------------------------------------------------
+local toDelete = {
+	Workspace:FindFirstChild("DinoEvent") and Workspace.DinoEvent:FindFirstChild("DnaMachineBase"),
+	Workspace:FindFirstChild("NPCS")      and Workspace.NPCS:FindFirstChild("Pet Stand"),
+}
+
+------------------------------------------------------------------------
+-- 5. Destroy the obsolete objects
+------------------------------------------------------------------------
+for _, inst in ipairs(toDelete) do
+	if inst then
+		inst:Destroy()
+	end
+end
