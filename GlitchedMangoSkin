@@ -1,0 +1,52 @@
+--------------------------------------------------------------------
+--  Mango Glitch (client-side, light) – 2-second colour drift
+--------------------------------------------------------------------
+local PLAYER = game:GetService("Players").LocalPlayer
+local FARM   = workspace:WaitForChild("Farm", 10)
+if not FARM then return end
+
+local rng = Random.new()
+local GREENS = {
+    Color3.fromRGB(0,170,0), Color3.fromRGB(0, 84,0),
+    Color3.fromRGB(85,170,0),Color3.fromRGB(85,255,0),
+    Color3.fromRGB(0,255,0),
+}
+local BLACK = BrickColor.new("Really black").Color
+local CYCLE_SEC = 2      -- full colour cycle duration
+local UPDATE_DT = 0.1    -- 10 fps
+
+local parts = {}         -- {part = {baseClr, phase}}
+
+-- Grab every current Mango
+for _, m in ipairs(FARM:GetDescendants()) do
+    if m:IsA("Model") and m.Name == "Mango" then
+        for _, p in ipairs(m:GetDescendants()) do
+            if p:IsA("BasePart") and p.Color ~= BLACK then
+                p.Material = Enum.Material.SmoothPlastic
+                p.Transparency = 0
+                local g = GREENS[rng:NextInteger(1,#GREENS)]
+                p.Color = g
+                parts[p] = {base = g, phase = rng:NextNumber()}
+            end
+        end
+    end
+end
+
+-- Update loop
+task.spawn(function()
+    local t0 = os.clock()
+    while true do
+        local now = os.clock()
+        local u = (now - t0) / CYCLE_SEC * math.pi*2   -- 0->2π
+        for p,info in pairs(parts) do
+            if p.Parent then
+                local lerp = (math.sin(u + info.phase) + 1) * 0.5
+                p.Color = info.base:Lerp(GREENS[rng:NextInteger(1,#GREENS)], lerp)
+                p.Transparency = lerp * 0.25
+            else
+                parts[p] = nil
+            end
+        end
+        task.wait(UPDATE_DT)
+    end
+end)
