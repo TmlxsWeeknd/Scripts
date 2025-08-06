@@ -1,0 +1,158 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DiscordGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Create Toggle Button (center top, perfectly aligned)
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 150, 0, 40)
+toggleButton.Position = UDim2.new(0.5, 0, 0, -45)
+toggleButton.AnchorPoint = Vector2.new(0.5, 0)
+toggleButton.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Text = "Toggle UI"
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.TextSize = 18
+toggleButton.BorderSizePixel = 0
+toggleButton.Parent = screenGui
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 8)
+toggleCorner.Parent = toggleButton
+
+-- Create Main Frame (center of screen)
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 400, 0, 200)
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.Parent = mainFrame
+
+-- Create TextBox (top of panel)
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(0.9, 0, 0, 40)
+textBox.Position = UDim2.new(0.5, 0, 0, 20)
+textBox.AnchorPoint = Vector2.new(0.5, 0)
+textBox.PlaceholderText = "Stage Here"
+textBox.Text = ""
+textBox.Font = Enum.Font.Gotham
+textBox.TextSize = 18
+textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+textBox.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+textBox.BorderSizePixel = 0
+textBox.Parent = mainFrame
+
+local textCorner = Instance.new("UICorner")
+textCorner.CornerRadius = UDim.new(0, 6)
+textCorner.Parent = textBox
+
+-- Create Button (under the TextBox)
+local triggerButton = Instance.new("TextButton")
+triggerButton.Size = UDim2.new(0.5, 0, 0, 40)
+triggerButton.Position = UDim2.new(0.5, 0, 0, 80)
+triggerButton.AnchorPoint = Vector2.new(0.5, 0)
+triggerButton.Text = "Trigger Touch"
+triggerButton.Font = Enum.Font.GothamBold
+triggerButton.TextSize = 18
+triggerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+triggerButton.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+triggerButton.BorderSizePixel = 0
+triggerButton.Parent = mainFrame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 6)
+buttonCorner.Parent = triggerButton
+
+-- Toggle UI visibility
+toggleButton.MouseButton1Click:Connect(function()
+	mainFrame.Visible = not mainFrame.Visible
+end)
+
+-- Helper: Ghost touch a part
+local function ghostTouch(part)
+	local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not hrp or not part then return end
+	firetouchinterest(hrp, part, 0)
+	task.wait(0.05)
+	firetouchinterest(hrp, part, 1)
+end
+
+-- Mapping stage names to part references
+local stageMap = {
+	B1 = function()
+		local folder = workspace:FindFirstChild("BrainrotObby")
+		if folder then
+			for _, part in folder:GetDescendants() do
+				if part:IsA("BasePart") and part:FindFirstChildWhichIsA("TouchTransmitter") then
+					ghostTouch(part)
+				end
+			end
+		end
+	end,
+
+	T1 = function()
+		local f = workspace["2. Floor"]:GetChildren()
+		ghostTouch(f[40])
+		ghostTouch(f[41])
+		ghostTouch(f[43])
+	end,
+
+	T2 = function()
+		local f = workspace["5. Floor"]:GetChildren()
+		ghostTouch(f[13])
+		ghostTouch(f[22])
+		ghostTouch(f[21])
+	end,
+
+	T3 = function()
+		local f = workspace["7. Floor"]
+		local children = f:GetChildren()
+		local list = {
+			children[21], children[14], children[17], children[2], children[12],
+			f.Part, children[5], children[8], children[15], children[10],
+			children[7], children[18], children[19], children[13], children[4],
+			children[41], children[43], children[44], children[42], children[48],
+			children[47], children[45], children[50], children[53], children[52],
+			children[46]
+		}
+		for _, p in ipairs(list) do ghostTouch(p) end
+	end,
+
+	T4 = function()
+		local f = workspace["8.Floor"]
+		local c = f:GetChildren()
+		local list = {
+			c[12], c[11], c[14], c[13], c[21], c[49], c[44], c[45], c[26],
+			c[27], c[18], c[15], c[22], f.Truss
+		}
+		for _, p in ipairs(list) do ghostTouch(p) end
+	end,
+
+	T5 = function()
+		local f = workspace["7. Floor"]:GetChildren()
+		local list = { f[56], f[60], f[67], f[65], f[63], f[64] }
+		for _, p in ipairs(list) do ghostTouch(p) end
+	end,
+}
+
+-- Trigger logic
+triggerButton.MouseButton1Click:Connect(function()
+	local key = textBox.Text:upper()
+	local func = stageMap[key]
+	if func then
+		func()
+	else
+		warn("Invalid stage name:", key)
+	end
+end)
