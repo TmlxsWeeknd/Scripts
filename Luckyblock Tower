@@ -57,7 +57,7 @@ local textCorner = Instance.new("UICorner")
 textCorner.CornerRadius = UDim.new(0, 6)
 textCorner.Parent = textBox
 
--- Create Button (under the TextBox)
+-- Create Trigger Button (under the TextBox)
 local triggerButton = Instance.new("TextButton")
 triggerButton.Size = UDim2.new(0.5, 0, 0, 40)
 triggerButton.Position = UDim2.new(0.5, 0, 0, 80)
@@ -154,5 +154,48 @@ triggerButton.MouseButton1Click:Connect(function()
 		func()
 	else
 		warn("Invalid stage name:", key)
+	end
+end)
+
+-- Add Toggle Touch Button (under the Trigger Button)
+local toggleTouchButton = Instance.new("TextButton")
+toggleTouchButton.Size = UDim2.new(0.5, 0, 0, 40)
+toggleTouchButton.Position = UDim2.new(0.5, 0, 0, 130)
+toggleTouchButton.AnchorPoint = Vector2.new(0.5, 0)
+toggleTouchButton.Text = "Toggle Touch (Off)"
+toggleTouchButton.Font = Enum.Font.GothamBold
+toggleTouchButton.TextSize = 18
+toggleTouchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleTouchButton.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+toggleTouchButton.BorderSizePixel = 0
+toggleTouchButton.Parent = mainFrame
+
+local toggleTouchCorner = Instance.new("UICorner")
+toggleTouchCorner.CornerRadius = UDim.new(0, 6)
+toggleTouchCorner.Parent = toggleTouchButton
+
+-- Toggle loop logic
+local toggled = false
+local touchLoopThread
+
+toggleTouchButton.MouseButton1Click:Connect(function()
+	toggled = not toggled
+	toggleTouchButton.Text = toggled and "Toggle Touch (On)" or "Toggle Touch (Off)"
+
+	if toggled then
+		touchLoopThread = task.spawn(function()
+			while toggled do
+				local key = textBox.Text:upper()
+				local func = stageMap[key]
+				if func then
+					func()
+				end
+				task.wait(0.5) -- Change this value to control the delay between loops
+			end
+		end)
+	else
+		if touchLoopThread then
+			task.cancel(touchLoopThread)
+		end
 	end
 end)
